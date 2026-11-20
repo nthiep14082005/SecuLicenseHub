@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Products>
+  <Product>
+    <ProductName>JetBrains All Products Pack 1 Năm</ProductName>
+    <PathImage>https://placehold.co/400x400/0f172a/38bdf8?text=JetBrains+Pack</PathImage>
+    <ProductType>License Key</ProductType>
+    <Quantity>30</Quantity>
+    <Unit>License</Unit>
+    <Price>1850000</Price>
+    <Description>Bản quyền chính hãng trọn bộ IDE JetBrains thời hạn 12 tháng, cấp key mã hóa AES-256-GCM.</Description>
+  </Product>
+  <Product>
+    <ProductName>Node.js Enterprise Auth &amp; 2FA Boilerplate</ProductName>
+    <PathImage>https://placehold.co/400x400/0f172a/34d399?text=Node+Auth+Kit</PathImage>
+    <ProductType>Source Code</ProductType>
+    <Quantity>45</Quantity>
+    <Unit>Gói</Unit>
+    <Price>790000</Price>
+    <Description>Mã nguồn mẫu Express + PostgreSQL tích hợp HttpOnly Cookie, 2FA TOTP và Audit Logging.</Description>
+  </Product>
+  <Product>
+    <ProductName>Tailwind Pro SaaS &amp; Security Admin UI Kit</ProductName>
+    <PathImage>https://placehold.co/400x400/0f172a/a78bfa?text=Tailwind+UI+Kit</PathImage>
+    <ProductType>Plugin &amp; UI Kit</ProductType>
+    <Quantity>60</Quantity>
+    <Unit>Gói</Unit>
+    <Price>450000</Price>
+    <Description>Bộ 120+ component React + Tailwind CSS chuẩn dashboard bảo mật và bảng CRUD phím tắt.</Description>
+  </Product>
+  <Product>
+    <ProductName>Gemini &amp; LLM Proxy API Quota 1M Tokens</ProductName>
+    <PathImage>https://placehold.co/400x400/0f172a/fbbf24?text=API+Quota+1M</PathImage>
+    <ProductType>API Quota</ProductType>
+    <Quantity>100</Quantity>
+    <Unit>Quota</Unit>
+    <Price>290000</Price>
+    <Description>Gói 1.000.000 token API có rate-limit theo key, phù hợp Chatbot tư vấn và OCR tự động.</Description>
+  </Product>
+  <Product>
+    <ProductName>Cẩm nang Web Security Thực chiến (E-Book)</ProductName>
+    <PathImage>https://placehold.co/400x400/0f172a/f87171?text=Web+Sec+Ebook</PathImage>
+    <ProductType>E-Book Kỹ thuật</ProductType>
+    <Quantity>80</Quantity>
+    <Unit>Tài liệu</Unit>
+    <Price>180000</Price>
+    <Description>Tài liệu PDF tổng hợp phòng chống SQLi, XSS, CSRF, XXE, IDOR, AES-256-GCM và HMAC-SHA256.</Description>
+  </Product>
+</Products>

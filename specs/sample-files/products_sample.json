@@ -1,0 +1,47 @@
+[
+  {
+    "ProductName": "JetBrains All Products Pack 1 Năm",
+    "PathImage": "https://placehold.co/400x400/0f172a/38bdf8?text=JetBrains+Pack",
+    "ProductType": "License Key",
+    "Quantity": 30,
+    "Unit": "License",
+    "Price": 1850000,
+    "Description": "Bản quyền chính hãng trọn bộ IDE JetBrains (IntelliJ IDEA, WebStorm, PyCharm, DataGrip) thời hạn 12 tháng, cấp key mã hóa AES-256-GCM."
+  },
+  {
+    "ProductName": "Node.js Enterprise Auth & 2FA Boilerplate",
+    "PathImage": "https://placehold.co/400x400/0f172a/34d399?text=Node+Auth+Kit",
+    "ProductType": "Source Code",
+    "Quantity": 45,
+    "Unit": "Gói",
+    "Price": 790000,
+    "Description": "Mã nguồn mẫu Express + PostgreSQL tích hợp HttpOnly Cookie, 2FA TOTP, Audit Logging và kiểm chứng tệp SHA-256."
+  },
+  {
+    "ProductName": "Tailwind Pro SaaS & Security Admin UI Kit",
+    "PathImage": "https://placehold.co/400x400/0f172a/a78bfa?text=Tailwind+UI+Kit",
+    "ProductType": "Plugin & UI Kit",
+    "Quantity": 60,
+    "Unit": "Gói",
+    "Price": 450000,
+    "Description": "Bộ 120+ component React + Tailwind CSS chuẩn dashboard bảo mật, bảng CRUD phím tắt và biểu mẫu xác thực đa lớp."
+  },
+  {
+    "ProductName": "Gemini & LLM Proxy API Quota 1M Tokens",
+    "PathImage": "https://placehold.co/400x400/0f172a/fbbf24?text=API+Quota+1M",
+    "ProductType": "API Quota",
+    "Quantity": 100,
+    "Unit": "Quota",
+    "Price": 290000,
+    "Description": "Gói 1.000.000 token API có giới hạn rate-limit theo project key, phù hợp cho Chatbot tư vấn và OCR tự động."
+  },
+  {
+    "ProductName": "Cẩm nang Web Security Thực chiến (E-Book)",
+    "PathImage": "https://placehold.co/400x400/0f172a/f87171?text=Web+Sec+Ebook",
+    "ProductType": "E-Book Kỹ thuật",
+    "Quantity": 80,
+    "Unit": "Tài liệu",
+    "Price": 180000,
+    "Description": "Tài liệu PDF tổng hợp phòng chống SQLi, XSS, CSRF, XXE, IDOR, AES-256-GCM và HMAC-SHA256 kèm ví dụ Node.js."
+  }
+]

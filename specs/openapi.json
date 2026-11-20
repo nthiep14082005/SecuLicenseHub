@@ -1,0 +1,742 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "SecuLicense Hub API — Dual-Course Platform (Node.js + PostgreSQL)",
+    "version": "2.0.0",
+    "description": "Tài liệu & Giao diện kiểm thử REST API (Swagger UI) cho hệ thống **SecuLicense Hub**.\n\nDùng chung 01 mã nguồn cho 2 môn học:\n- **Ngôn ngữ kịch bản:** Quản lý Product (10 trường chuẩn, 11 chức năng), Import/Export 3 định dạng, Meilisearch, Voice Search, AI Chatbot & AI OCR.\n- **Phát triển phần mềm web an toàn:** Auth `HttpOnly` Cookie + 2FA TOTP + Lockout, `AES-256-GCM` License Vault, `HMAC-SHA256` Order Integrity, `Signed URL` 300s, Chống SQLi/XSS/CSRF/XXE/Formula Injection/IDOR & AI Security Log Analyzer.\n\n**Lưu ý kiểm thử:** Ở giai đoạn khung xương (skeleton), các route nghiệp vụ trả về HTTP `501 Not Implemented` kèm ghi chú `TODO` rõ ràng cho **Thành viên A** hoặc **Thành viên B**. Riêng `GET /api/health`, `GET /docs` và `GET /docs.json` chạy thật ngay."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Local Development Server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "System",
+      "description": "Kiểm tra kết nối Express Server & PostgreSQL (Docker / Neon SSL)"
+    },
+    {
+      "name": "Auth & 2FA",
+      "description": "[Thành viên A] Đăng ký, Đăng nhập HttpOnly Cookie, Lockout 5 lần & 2FA TOTP"
+    },
+    {
+      "name": "Products (11 Functions)",
+      "description": "[Thành viên A] Bảng Product 10 trường chuẩn, 11 chức năng CRUD/Bulk/Import-Export an toàn chống XXE & Formula Injection"
+    },
+    {
+      "name": "Orders & VietQR",
+      "description": "[Thành viên B & A] Đặt hàng transaction FOR UPDATE, chữ ký HMAC-SHA256, VietQR & Duyệt đơn"
+    },
+    {
+      "name": "License Vault & Signed Download",
+      "description": "[Thành viên B] Kho License giải mã AES-256-GCM chống IDOR & tải file qua Signed URL 300s"
+    },
+    {
+      "name": "Contacts",
+      "description": "[Thành viên B & A] Biểu mẫu liên hệ chống Stored XSS & Quản trị phản hồi"
+    },
+    {
+      "name": "Search (Meilisearch)",
+      "description": "[Thành viên B] Tìm kiếm tức thời không dấu, chịu lỗi chính tả qua Meilisearch"
+    },
+    {
+      "name": "AI Services (Chatbot, OCR, Log Analyzer)",
+      "description": "[Thành viên A & B] Gemini AI Chatbot kho thật, AI OCR phiếu nhập & AI Security Log Analyzer"
+    },
+    {
+      "name": "Security Audit Logs",
+      "description": "[Thành viên A] Tra cứu nhật ký kiểm toán chống chối bỏ (audit_logs)"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "cookieAuth": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "seculicense_token",
+        "description": "JWT lưu trong HttpOnly, SameSite=Strict Cookie (trình duyệt tự gửi khi bật withCredentials: true)"
+      },
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Fallback Bearer JWT dùng khi test trực tiếp trên Swagger UI"
+      }
+    },
+    "schemas": {
+      "Product": {
+        "type": "object",
+        "required": [
+          "ProductID",
+          "ProductName",
+          "ProductType",
+          "Quantity",
+          "Unit",
+          "Price"
+        ],
+        "properties": {
+          "ProductID": { "type": "integer", "example": 1 },
+          "ProductName": { "type": "string", "example": "JetBrains All Products Pack 1 Năm" },
+          "PathImage": { "type": "string", "example": "/uploads/products/jetbrains-pack.png" },
+          "ProductType": {
+            "type": "string",
+            "enum": ["License Key", "Source Code", "Plugin & UI Kit", "API Quota", "E-Book Kỹ thuật"],
+            "example": "License Key"
+          },
+          "Quantity": { "type": "integer", "minimum": 0, "example": 30 },
+          "Unit": {
+            "type": "string",
+            "enum": ["Key", "Gói", "License", "Quota", "Tài liệu"],
+            "example": "License"
+          },
+          "Price": { "type": "number", "minimum": 0, "example": 1850000 },
+          "Description": {
+            "type": "string",
+            "example": "Bản quyền chính hãng bộ IDE JetBrains (IntelliJ, WebStorm, DataGrip) kích hoạt qua mã bảo mật."
+          },
+          "CreateDate": { "type": "string", "format": "date-time", "example": "2026-11-21T08:00:00.000Z" },
+          "UpdateDate": { "type": "string", "format": "date-time", "example": "2026-11-21T08:00:00.000Z" }
+        }
+      },
+      "ProductInput": {
+        "type": "object",
+        "required": ["ProductName", "ProductType", "Quantity", "Unit", "Price"],
+        "properties": {
+          "ProductName": { "type": "string", "example": "Node.js Enterprise Auth Boilerplate" },
+          "PathImage": { "type": "string", "example": "/uploads/products/node-auth-kit.png" },
+          "ProductType": {
+            "type": "string",
+            "enum": ["License Key", "Source Code", "Plugin & UI Kit", "API Quota", "E-Book Kỹ thuật"],
+            "example": "Source Code"
+          },
+          "Quantity": { "type": "integer", "minimum": 0, "example": 50 },
+          "Unit": { "type": "string", "example": "Gói" },
+          "Price": { "type": "number", "minimum": 0, "example": 790000 },
+          "Description": {
+            "type": "string",
+            "example": "Mã nguồn mẫu Express + PostgreSQL + 2FA TOTP + AES-256-GCM sẵn sàng triển khai."
+          },
+          "fileSha256": {
+            "type": "string",
+            "example": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+          },
+          "assetFilename": {
+            "type": "string",
+            "example": "node-auth-boilerplate-v2.zip"
+          }
+        }
+      },
+      "BulkIdsRequest": {
+        "type": "object",
+        "required": ["ids"],
+        "properties": {
+          "ids": {
+            "type": "array",
+            "items": { "type": "integer" },
+            "example": [1, 2, 3]
+          }
+        }
+      },
+      "RegisterInput": {
+        "type": "object",
+        "required": ["fullName", "email", "password"],
+        "properties": {
+          "fullName": { "type": "string", "example": "Nguyễn Minh Quân" },
+          "email": { "type": "string", "format": "email", "example": "quan.customer@seculicense.vn" },
+          "password": { "type": "string", "minLength": 8, "example": "SecuPass@2026" }
+        }
+      },
+      "LoginInput": {
+        "type": "object",
+        "required": ["email", "password"],
+        "properties": {
+          "email": { "type": "string", "format": "email", "example": "admin@seculicense.vn" },
+          "password": { "type": "string", "example": "Admin@Secu2026" },
+          "totpCode": { "type": "string", "example": "123456", "description": "Bắt buộc nếu tài khoản đã bật 2FA TOTP" }
+        }
+      },
+      "TotpVerifyInput": {
+        "type": "object",
+        "required": ["token"],
+        "properties": {
+          "token": { "type": "string", "example": "482910" }
+        }
+      },
+      "OrderCreateInput": {
+        "type": "object",
+        "required": ["paymentMethod", "items"],
+        "properties": {
+          "paymentMethod": { "type": "string", "enum": ["VIETQR", "BANK_TRANSFER"], "example": "VIETQR" },
+          "note": { "type": "string", "example": "Cấp key cho phòng lab an toàn thông tin" },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["ProductID", "Quantity"],
+              "properties": {
+                "ProductID": { "type": "integer", "example": 1 },
+                "Quantity": { "type": "integer", "minimum": 1, "example": 1 }
+              }
+            }
+          }
+        }
+      },
+      "ContactInput": {
+        "type": "object",
+        "required": ["fullName", "email", "subject", "message"],
+        "properties": {
+          "fullName": { "type": "string", "example": "Trần Thảo Vy" },
+          "email": { "type": "string", "format": "email", "example": "vy.tran@example.com" },
+          "subject": { "type": "string", "example": "Hỏi về gia hạn API Quota Gemini" },
+          "message": { "type": "string", "example": "Nhóm mình cần báo giá gói 5M token cho đồ án tốt nghiệp." }
+        }
+      },
+      "ChatRequest": {
+        "type": "object",
+        "required": ["message"],
+        "properties": {
+          "message": { "type": "string", "example": "Mình cần mua IDE bản quyền hoặc UI Kit dưới 1 triệu, có gói nào còn hàng?" }
+        }
+      },
+      "LogAnalyzeRequest": {
+        "type": "object",
+        "properties": {
+          "limit": { "type": "integer", "minimum": 10, "maximum": 200, "default": 50, "example": 50 },
+          "severityFilter": { "type": "string", "enum": ["ALL", "WARN", "HIGH", "CRITICAL"], "default": "ALL" }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Kiểm tra trạng thái Server & PostgreSQL (Docker / Neon SSL)",
+        "responses": {
+          "200": { "description": "Server & Database hoạt động bình thường" },
+          "500": { "description": "Database chưa kết nối được" }
+        }
+      }
+    },
+    "/api/auth/register": {
+      "post": {
+        "tags": ["Auth & 2FA"],
+        "summary": "[A] Đăng ký tài khoản Customer (bcrypt salt>=10 + Audit Log)",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RegisterInput" } } }
+        },
+        "responses": {
+          "201": { "description": "Đăng ký thành công" },
+          "409": { "description": "Email đã tồn tại" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/auth/login": {
+      "post": {
+        "tags": ["Auth & 2FA"],
+        "summary": "[A] Đăng nhập HttpOnly Cookie + Lockout 15p sau 5 lần sai + 2FA TOTP",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LoginInput" } } }
+        },
+        "responses": {
+          "200": { "description": "Đăng nhập thành công, set HttpOnly Cookie" },
+          "401": { "description": "Sai thông tin hoặc thiếu mã 2FA" },
+          "423": { "description": "Tài khoản bị tạm khóa 15 phút do brute-force" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/auth/logout": {
+      "post": {
+        "tags": ["Auth & 2FA"],
+        "summary": "[A] Đăng xuất và xóa HttpOnly Cookie",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Đã đăng xuất" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/auth/me": {
+      "get": {
+        "tags": ["Auth & 2FA"],
+        "summary": "[A] Lấy thông tin user đang đăng nhập từ Cookie/JWT",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Hồ sơ người dùng hiện tại" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/auth/2fa/setup": {
+      "post": {
+        "tags": ["Auth & 2FA"],
+        "summary": "[A] Khởi tạo bí mật TOTP & mã QR Google Authenticator (Admin)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Trả về qrDataUrl và secret tạm" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/auth/2fa/verify": {
+      "post": {
+        "tags": ["Auth & 2FA"],
+        "summary": "[A] Xác nhận mã 6 số TOTP để kích hoạt 2FA",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TotpVerifyInput" } } }
+        },
+        "responses": {
+          "200": { "description": "Kích hoạt 2FA thành công" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/products": {
+      "get": {
+        "tags": ["Products (11 Functions)"],
+        "summary": "[A - CN #1] Danh sách Product phân trang (10-15 dòng) & lọc",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 12, "minimum": 10, "maximum": 15 } },
+          { "name": "type", "in": "query", "schema": { "type": "string" } },
+          { "name": "keyword", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách Product chuẩn 10 trường + pagination" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      },
+      "post": {
+        "tags": ["Products (11 Functions)"],
+        "summary": "[A - CN #2] Thêm mới tài nguyên số (Admin)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProductInput" } } }
+        },
+        "responses": {
+          "201": { "description": "Tạo Product thành công" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/products/{id}": {
+      "get": {
+        "tags": ["Products (11 Functions)"],
+        "summary": "[A - CN #4] Xem chi tiết 1 Product (kèm SHA-256 checksum)",
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Chi tiết Product" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      },
+      "put": {
+        "tags": ["Products (11 Functions)"],
+        "summary": "[A - CN #3] Cập nhật Product (Admin)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ProductInput" } } }
+        },
+        "responses": {
+          "200": { "description": "Cập nhật thành công" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      },
+      "delete": {
+        "tags": ["Products (11 Functions)"],
+        "summary": "[A - CN #5] Xóa 1 Product (Admin)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Đã xóa Product" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/products/bulk-delete": {
+      "post": {
+        "tags": ["Products (11 Functions)"],
+        "summary": "[A - CN #6] Xóa nhiều Product trong Transaction (Admin)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BulkIdsRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "Đã xóa hàng loạt" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/products/{id}/clone": {
+      "post": {
+        "tags": ["Products (11 Functions)"],
+        "summary": "[A - CN #7] Sao chép 1 bản ghi Product (Admin)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "201": { "description": "Đã sao chép bản ghi" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/products/bulk-clone": {
+      "post": {
+        "tags": ["Products (11 Functions)"],
+        "summary": "[A - CN #8] Sao chép nhiều bản ghi Product trong Transaction (Admin)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/BulkIdsRequest" } } }
+        },
+        "responses": {
+          "201": { "description": "Đã sao chép hàng loạt" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/products/import": {
+      "post": {
+        "tags": ["Products (11 Functions)"],
+        "summary": "[A - CN #9] Import .xlsx / .json / .xml (chặn XXE DTD/ENTITY & validate từng dòng)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["file"],
+                "properties": {
+                  "file": { "type": "string", "format": "binary", "description": "File .xlsx, .json hoặc .xml" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Import thành công vào PostgreSQL" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/products/export": {
+      "get": {
+        "tags": ["Products (11 Functions)"],
+        "summary": "[A - CN #9] Export .xlsx / .json / .xml (chống Excel Formula Injection)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          {
+            "name": "format",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "enum": ["xlsx", "json", "xml"], "default": "xlsx" }
+          }
+        ],
+        "responses": {
+          "200": { "description": "Tải file Export đủ 10 cột chuẩn" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/products/upload-image": {
+      "post": {
+        "tags": ["Products (11 Functions)"],
+        "summary": "[A] Upload ảnh đại diện Product kiểm tra Magic Bytes + đổi tên UUID",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["image"],
+                "properties": {
+                  "image": { "type": "string", "format": "binary", "description": "Ảnh PNG, JPG hoặc WEBP hợp lệ" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": { "description": "Trả về PathImage /uploads/products/<uuid>.<ext>" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/orders": {
+      "post": {
+        "tags": ["Orders & VietQR"],
+        "summary": "[B] Tạo đơn hàng (Transaction FOR UPDATE + HMAC-SHA256 + VietQR)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/OrderCreateInput" } } }
+        },
+        "responses": {
+          "201": { "description": "Đặt hàng thành công, trả về integrity_hmac & URL VietQR" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên B)" }
+        }
+      },
+      "get": {
+        "tags": ["Orders & VietQR"],
+        "summary": "[A] Danh sách toàn bộ hóa đơn (Admin)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Danh sách hóa đơn" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/orders/my": {
+      "get": {
+        "tags": ["Orders & VietQR"],
+        "summary": "[B] Lịch sử đơn hàng cá nhân của khách đang đăng nhập",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Danh sách đơn hàng của user" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên B)" }
+        }
+      }
+    },
+    "/api/orders/{id}/status": {
+      "patch": {
+        "tags": ["Orders & VietQR"],
+        "summary": "[A] Duyệt / cập nhật trạng thái đơn hàng & kích hoạt cấp key (Admin)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["status"],
+                "properties": {
+                  "status": { "type": "string", "enum": ["PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Cập nhật trạng thái thành công" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/orders/{id}/verify-integrity": {
+      "get": {
+        "tags": ["Orders & VietQR"],
+        "summary": "[B] Kiểm chứng toàn vẹn hóa đơn bằng HMAC-SHA256 (phát hiện sửa giá DB)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Trả về valid: true/false" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên B)" }
+        }
+      }
+    },
+    "/api/licenses/my": {
+      "get": {
+        "tags": ["License Vault & Signed Download"],
+        "summary": "[B] Kho License & Tài nguyên số thuộc sở hữu user (chống IDOR)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Danh sách license đã che (masked)" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên B)" }
+        }
+      }
+    },
+    "/api/licenses/{id}/reveal": {
+      "post": {
+        "tags": ["License Vault & Signed Download"],
+        "summary": "[B] Giải mã AES-256-GCM để xem License Key (kiểm tra chủ sở hữu + Audit Log)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Trả về plaintext license key" },
+          "403": { "description": "Từ chối IDOR — không phải chủ sở hữu" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên B)" }
+        }
+      }
+    },
+    "/api/licenses/{id}/download-link": {
+      "post": {
+        "tags": ["License Vault & Signed Download"],
+        "summary": "[B] Sinh Signed Download URL có chữ ký HMAC hết hạn sau 300 giây",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Trả về downloadUrl kèm expiresInSeconds: 300" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên B)" }
+        }
+      }
+    },
+    "/api/licenses/download": {
+      "get": {
+        "tags": ["License Vault & Signed Download"],
+        "summary": "[B] Tải tệp tài nguyên số qua Signed URL token (chống Path Traversal)",
+        "parameters": [
+          { "name": "token", "in": "query", "required": true, "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Stream tệp tài nguyên đính kèm SHA-256" },
+          "403": { "description": "Token hết hạn hoặc chữ ký không hợp lệ" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên B)" }
+        }
+      }
+    },
+    "/api/contacts": {
+      "post": {
+        "tags": ["Contacts"],
+        "summary": "[B] Gửi biểu mẫu liên hệ hỗ trợ (chống Stored XSS)",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ContactInput" } } }
+        },
+        "responses": {
+          "201": { "description": "Đã ghi nhận phản hồi" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên B)" }
+        }
+      },
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "[A] Xem danh sách liên hệ khách hàng (Admin)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Danh sách liên hệ" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/contacts/{id}/resolve": {
+      "patch": {
+        "tags": ["Contacts"],
+        "summary": "[A] Đánh dấu đã xử lý liên hệ (Admin)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [{ "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }],
+        "responses": {
+          "200": { "description": "Đã chuyển trạng thái RESOLVED" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/search": {
+      "get": {
+        "tags": ["Search (Meilisearch)"],
+        "summary": "[B] Tìm kiếm tức thời không dấu, chịu lỗi chính tả qua Meilisearch",
+        "parameters": [
+          { "name": "q", "in": "query", "required": true, "schema": { "type": "string", "example": "ban quyen jetbrain" } },
+          { "name": "type", "in": "query", "schema": { "type": "string" } },
+          { "name": "maxPrice", "in": "query", "schema": { "type": "number" } }
+        ],
+        "responses": {
+          "200": { "description": "Kết quả tìm kiếm từ Meilisearch" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên B)" }
+        }
+      }
+    },
+    "/api/search/sync": {
+      "post": {
+        "tags": ["Search (Meilisearch)"],
+        "summary": "[B] Đồng bộ thủ công toàn bộ bảng products sang Meilisearch (Admin)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Đồng bộ thành công" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên B)" }
+        }
+      }
+    },
+    "/api/ai/chat": {
+      "post": {
+        "tags": ["AI Services (Chatbot, OCR, Log Analyzer)"],
+        "summary": "[B] Chatbot AI Gemini tư vấn gói bản quyền/tài nguyên theo kho thật",
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ChatRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "Câu trả lời AI kèm recommendedProductIds" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên B)" }
+        }
+      }
+    },
+    "/api/ai/ocr-product": {
+      "post": {
+        "tags": ["AI Services (Chatbot, OCR, Log Analyzer)"],
+        "summary": "[A] AI OCR hóa đơn/phiếu nhập lô bản quyền để điền tự động Form Product",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["image"],
+                "properties": {
+                  "image": { "type": "string", "format": "binary", "description": "Ảnh hóa đơn hoặc phiếu nhập lô license" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "JSON 6 trường bóc tách tự động" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/ai/analyze-logs": {
+      "post": {
+        "tags": ["AI Services (Chatbot, OCR, Log Analyzer)"],
+        "summary": "[B] AI Security Log Analyzer đọc audit_logs phát hiện bất thường",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "requestBody": {
+          "required": false,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LogAnalyzeRequest" } } }
+        },
+        "responses": {
+          "200": { "description": "Báo cáo rủi ro AI: riskLevel, threats, recommendedActions" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên B)" }
+        }
+      }
+    },
+    "/api/security/audit-logs": {
+      "get": {
+        "tags": ["Security Audit Logs"],
+        "summary": "[A] Truy vấn danh sách audit_logs phân trang & lọc mức độ severity (Admin)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 20 } },
+          { "name": "severity", "in": "query", "schema": { "type": "string", "enum": ["INFO", "WARN", "HIGH", "CRITICAL"] } }
+        ],
+        "responses": {
+          "200": { "description": "Danh sách nhật ký kiểm toán" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    },
+    "/api/security/summary": {
+      "get": {
+        "tags": ["Security Audit Logs"],
+        "summary": "[A] Thống kê số lượng cảnh báo theo severity & top hành động đáng ngờ (Admin)",
+        "security": [{ "cookieAuth": [] }, { "bearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Thống kê bảo mật tổng quan" },
+          "501": { "description": "Skeleton placeholder (TODO Thành viên A)" }
+        }
+      }
+    }
+  }
+}
