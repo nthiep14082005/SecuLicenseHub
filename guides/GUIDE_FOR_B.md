@@ -3,6 +3,30 @@
 > **Vai trò:** Seed 45 sản phẩm số & License Pool mã hóa, 5 trang Portal Khách hàng, Giao dịch nguyên tử (`FOR UPDATE` + `HMAC-SHA256` + VietQR), Kho License (`AES-256-GCM` + chống IDOR + `Signed URL` 300s), Meilisearch + Voice Search, Chatbot AI & AI Security Log Analyzer.
 > **Nhánh Git riêng:** `feat/b-portal-crypto-ai`
 
+> [!CAUTION]
+> **CẢNH BÁO QUY TRÌNH GIT BẮT BUỘC CHO THÀNH VIÊN B (ĐỌC KỸ TRƯỚC KHI CHẠY LỆNH):**
+> 1. Khi `git fetch` / kéo code mới nhất về để ghép hoặc chạy thử với code của Thành viên A, **BẮT BUỘC phải tạo một nhánh mới riêng biệt** (nhánh phát triển `feat/b-portal-crypto-ai` hoặc nhánh test ghép `test/b-integration`) rồi **merge code vào nhánh mới đó để test**.
+> 2. **TUYỆT ĐỐI KHÔNG** commit, push, sửa code hay thao tác trực tiếp lên nhánh `main` và nhánh của Thành viên A (`feat/a-core-admin-hardening`).
+>
+> **Bộ lệnh Git mẫu chuẩn cho Thành viên B:**
+> ```bash
+> # A. Chuyển đúng sang nhánh làm việc của Thành viên B (tạo nếu chưa có ở local)
+> git fetch origin
+> git checkout feat/b-portal-crypto-ai || git checkout -b feat/b-portal-crypto-ai origin/feat/b-portal-crypto-ai
+> git branch --show-current   # Phải hiện: feat/b-portal-crypto-ai
+>
+> # B. Khi cần kéo code mới của Thành viên A về ghép & test thử:
+> git fetch origin
+> git checkout -b test/b-integration feat/b-portal-crypto-ai
+> git merge origin/feat/a-core-admin-hardening
+> # (Chạy test trên test/b-integration; xong có thể quay lại feat/b-portal-crypto-ai để code tiếp)
+>
+> # C. Lưu & đẩy code của B lên GitHub (CHỈ push nhánh của B)
+> git add <files_cua_B>
+> git commit -m "feat(b): ..."
+> git push -u origin feat/b-portal-crypto-ai
+> ```
+
 ---
 
 ## 1. Phạm vi Thư mục được phép Sửa
