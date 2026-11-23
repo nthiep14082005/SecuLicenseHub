@@ -135,3 +135,25 @@ Khi có lỗi (`400`, `401`, `403`, `404`, `423`, `429`, `500`, `501`):
 - **Nhánh Thành viên A:** `feat/a-core-admin-hardening`.
 - **Nhánh Thành viên B:** `feat/b-portal-crypto-ai`.
 - **Điểm dừng cứng:** Tuyệt đối không sửa `specs/init.sql`, không đổi tên 10 key bảng `Product`, không sửa chéo thư mục của người còn lại, và **không bao giờ commit `.env`, API key hoặc tệp trong `server/uploads/`**.
+
+> [!CAUTION]
+> **QUY TẮC CỨNG BẮT BUỘC DÀNH CHO THÀNH VIÊN B:**
+> 1. Khi `git fetch` / kéo code mới nhất về để ghép code hoặc chạy thử với phần của Thành viên A, **BẮT BUỘC phải tạo một nhánh mới riêng biệt** (ví dụ `feat/b-portal-crypto-ai` hoặc nhánh test riêng như `test/b-integration`) rồi **merge code vào nhánh mới đó để test**.
+> 2. **TUYỆT ĐỐI KHÔNG** commit, push, sửa code hay thao tác trực tiếp lên nhánh `main` và nhánh của Thành viên A (`feat/a-core-admin-hardening`).
+>
+> **Bộ lệnh Git mẫu chuẩn cho Thành viên B (copy chạy đúng thứ tự):**
+> ```bash
+> # 1) Luôn kiểm tra nhánh hiện tại trước khi làm việc
+> git branch --show-current
+> git fetch origin
+>
+> # 2) Code phần của B trên nhánh riêng của B:
+> git checkout feat/b-portal-crypto-ai || git checkout -b feat/b-portal-crypto-ai origin/feat/b-portal-crypto-ai
+>
+> # 3) Khi muốn kéo code của Thành viên A về ghép & chạy thử -> tạo nhánh test riêng từ nhánh của B:
+> git checkout -b test/b-integration feat/b-portal-crypto-ai
+> git merge origin/feat/a-core-admin-hardening
+>
+> # 4) Chỉ push lên nhánh của B (KHÔNG push lên main hay feat/a-core-admin-hardening):
+> git push -u origin feat/b-portal-crypto-ai
+> ```
