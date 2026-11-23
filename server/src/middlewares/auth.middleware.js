@@ -97,9 +97,12 @@ function requireRole(...allowedRoles) {
   };
 }
 
+const requireAdmin = requireRole('ADMIN');
+
 module.exports = {
   extractToken,
   requireAuth,
   optionalAuth,
-  requireRole
+  requireRole,
+  requireAdmin
 };

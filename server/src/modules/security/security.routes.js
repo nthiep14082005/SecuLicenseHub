@@ -1,17 +1,14 @@
 const express = require('express');
 const securityController = require('./security.controller');
-const { requireAuth, requireRole } = require('../../middlewares/auth.middleware');
-
-// TODO [Thành viên A & B]: Bật requireAuth, requireRole('ADMIN') trên toàn bộ endpoint /api/security/* và /api/ai/analyze-logs
-void requireAuth;
-void requireRole;
+const { requireAuth, requireAdmin } = require('../../middlewares/auth.middleware');
 
 // Router gắn tại /api/security (Thành viên A)
 const securityRouter = express.Router();
-securityRouter.get('/audit-logs', securityController.listAuditLogs);
-securityRouter.get('/summary', securityController.getSecuritySummary);
+securityRouter.get('/audit-logs', requireAuth, requireAdmin, securityController.listAuditLogs);
+securityRouter.get('/summary', requireAuth, requireAdmin, securityController.getSecuritySummary);
 
 // Router gắn tại /api/ai (Thành viên B)
+// TODO [Thành viên B]: Bật requireAuth, requireAdmin trên POST /analyze-logs khi hoàn tất
 const securityAiRouter = express.Router();
 securityAiRouter.post('/analyze-logs', securityController.analyzeAuditLogsWithAi);
 

@@ -1,46 +1,146 @@
-const { sendNotImplemented } = require('../../utils/response.util');
+const env = require('../../config/env');
+const { sendSuccess, sendError } = require('../../utils/response.util');
+const { writeAuditLog } = require('../../utils/audit.util');
 const authService = require('./auth.service');
 
-void authService;
+const COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-exports.register = async (req, res) =>
-  sendNotImplemented(res, {
-    owner: 'Thành viên A',
-    endpoint: 'POST /api/auth/register',
-    todo: 'Validate email + mật khẩu mạnh (>=8 ký tự, hoa/thường/số), băm bcryptjs salt>=10, lưu role CUSTOMER và ghi audit_logs.'
-  });
+function getCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: env.auth.cookieSecure,
+    maxAge: COOKIE_MAX_AGE_MS,
+    path: '/'
+  };
+}
 
-exports.login = async (req, res) =>
-  sendNotImplemented(res, {
-    owner: 'Thành viên A',
-    endpoint: 'POST /api/auth/login',
-    todo: 'Kiểm tra locked_until, tăng failed_login_attempts (sai 5 lần khóa 15 phút), kiểm tra 2FA TOTP nếu bật, ký JWT vào HttpOnly SameSite=Strict Cookie.'
-  });
+exports.register = async (req, res, next) => {
+  try {
+    const user = await authService.register({
+      fullName: req.body?.fullName,
+      email: req.body?.email,
+      password: req.body?.password,
+      req
+    });
 
-exports.logout = async (req, res) =>
-  sendNotImplemented(res, {
-    owner: 'Thành viên A',
-    endpoint: 'POST /api/auth/logout',
-    todo: 'Xóa HttpOnly Cookie seculicense_token và ghi audit_logs.'
-  });
+    return sendSuccess(res, {
+      statusCode: 201,
+      message: 'Đăng ký tài khoản thành công',
+      data: { user }
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
 
-exports.getProfile = async (req, res) =>
-  sendNotImplemented(res, {
-    owner: 'Thành viên A',
-    endpoint: 'GET /api/auth/me',
-    todo: 'Bật requireAuth, truy vấn thông tin user (không trả password_hash và totp_secret).'
-  });
+exports.login = async (req, res, next) => {
+  try {
+    const { token, user } = await authService.login({
+      email: req.body?.email,
+      password: req.body?.password,
+      totpCode: req.body?.totpCode,
+      req
+    });
 
-exports.setup2fa = async (req, res) =>
-  sendNotImplemented(res, {
-    owner: 'Thành viên A',
-    endpoint: 'POST /api/auth/2fa/setup',
-    todo: 'Dùng otplib tạo secret TOTP và qrcode sinh mã QR dataURL cho Admin.'
-  });
+    res.cookie(env.auth.cookieName, token, getCookieOptions());
 
-exports.verify2fa = async (req, res) =>
-  sendNotImplemented(res, {
-    owner: 'Thành viên A',
-    endpoint: 'POST /api/auth/2fa/verify',
-    todo: 'Xác thực mã TOTP 6 số từ Google Authenticator và bật is_2fa_enabled = true.'
-  });
+    const data = { user };
+    if (!env.isProduction) {
+      data.token = token;
+    }
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Đăng nhập thành công',
+      data
+    });
+  } catch (err) {
+    if (err.requires2fa) {
+      return res.status(err.statusCode || 401).json({
+        success: false,
+        message: err.message,
+        requires2fa: true,
+        errors: []
+      });
+    }
+    return next(err);
+  }
+};
+
+exports.logout = async (req, res, next) => {
+  try {
+    res.clearCookie(env.auth.cookieName, {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: env.auth.cookieSecure,
+      path: '/'
+    });
+
+    await writeAuditLog({
+      userId: req.user?.userId || null,
+      action: 'LOGOUT',
+      resource: req.user?.email || 'SESSION',
+      req,
+      severity: 'INFO'
+    });
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Đã đăng xuất khỏi hệ thống',
+      data: null
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.getProfile = async (req, res, next) => {
+  try {
+    const user = await authService.getProfile(req.user.userId);
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Lấy thông tin tài khoản thành công',
+      data: { user }
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.setup2fa = async (req, res, next) => {
+  try {
+    const data = await authService.setup2fa({ userId: req.user.userId, req });
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Khởi tạo mã QR xác thực 2 bước (TOTP) thành công',
+      data
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.verify2fa = async (req, res, next) => {
+  try {
+    const token = req.body?.token;
+    if (!token) {
+      return sendError(res, {
+        statusCode: 400,
+        message: 'Vui lòng cung cấp mã xác thực 6 số (token)'
+      });
+    }
+    const data = await authService.verify2fa({
+      userId: req.user.userId,
+      token,
+      req
+    });
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Kích hoạt xác thực 2 bước (2FA) thành công',
+      data
+    });
+  } catch (err) {
+    return next(err);
+  }
+};

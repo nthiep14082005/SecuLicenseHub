@@ -1,11 +1,22 @@
-const { sendNotImplemented } = require('../../utils/response.util');
+const { sendSuccess } = require('../../utils/response.util');
 const ocrService = require('./ocr.service');
 
-void ocrService;
+exports.extractProductFromImage = async (req, res, next) => {
+  try {
+    const data = await ocrService.extractProductFromImage({
+      file: req.file,
+      user: req.user,
+      req
+    });
 
-exports.extractProductFromImage = async (req, res) =>
-  sendNotImplemented(res, {
-    owner: 'Thành viên A',
-    endpoint: 'POST /api/ai/ocr-product',
-    todo: 'Kiểm tra Magic Bytes ảnh phiếu nhập/nhãn bản quyền, gửi lên Gemini Vision (@google/genai) ép trả JSON 6 trường ProductName, ProductType, Quantity, Unit, Price, Description (trường thiếu trả null).'
-  });
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: data.isFallback
+        ? 'Trả về dữ liệu OCR mẫu (chế độ fallback)'
+        : 'Bóc tách thông tin sản phẩm từ ảnh thành công',
+      data
+    });
+  } catch (err) {
+    return next(err);
+  }
+};

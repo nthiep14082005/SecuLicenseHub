@@ -1,21 +1,39 @@
-const { sendNotImplemented } = require('../../utils/response.util');
+const { sendSuccess, sendNotImplemented } = require('../../utils/response.util');
 const securityService = require('./security.service');
 
-void securityService;
+exports.listAuditLogs = async (req, res, next) => {
+  try {
+    const result = await securityService.listAuditLogs({
+      page: req.query.page,
+      limit: req.query.limit,
+      severity: req.query.severity,
+      action: req.query.action,
+      keyword: req.query.keyword
+    });
 
-exports.listAuditLogs = async (req, res) =>
-  sendNotImplemented(res, {
-    owner: 'Thành viên A',
-    endpoint: 'GET /api/security/audit-logs',
-    todo: 'Truy vấn bảng audit_logs có phân trang & lọc theo severity (INFO/WARN/HIGH/CRITICAL).'
-  });
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Lấy nhật ký kiểm toán thành công',
+      data: result.items,
+      pagination: result.pagination
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
 
-exports.getSecuritySummary = async (req, res) =>
-  sendNotImplemented(res, {
-    owner: 'Thành viên A',
-    endpoint: 'GET /api/security/summary',
-    todo: 'Thống kê số sự kiện theo mức độ severity và các hành động đáng ngờ 24h gần nhất.'
-  });
+exports.getSecuritySummary = async (req, res, next) => {
+  try {
+    const data = await securityService.getSecuritySummary();
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Lấy thống kê bảo mật thành công',
+      data
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
 
 exports.analyzeAuditLogsWithAi = async (req, res) =>
   sendNotImplemented(res, {

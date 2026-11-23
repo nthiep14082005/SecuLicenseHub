@@ -1,7 +1,5 @@
-const { sendNotImplemented } = require('../../utils/response.util');
+const { sendSuccess, sendNotImplemented } = require('../../utils/response.util');
 const ordersService = require('./orders.service');
-
-void ordersService;
 
 exports.createOrder = async (req, res) =>
   sendNotImplemented(res, {
@@ -17,19 +15,43 @@ exports.getMyOrders = async (req, res) =>
     todo: 'Truy vấn các đơn hàng thuộc req.user.userId (chống IDOR) kèm chi tiết sản phẩm.'
   });
 
-exports.listAllOrders = async (req, res) =>
-  sendNotImplemented(res, {
-    owner: 'Thành viên A',
-    endpoint: 'GET /api/orders',
-    todo: 'Lấy danh sách tất cả hóa đơn cho Admin (kèm trạng thái kiểm chứng HMAC).'
-  });
+exports.listAllOrders = async (req, res, next) => {
+  try {
+    const result = await ordersService.listAllOrders({
+      page: req.query.page,
+      limit: req.query.limit,
+      status: req.query.status
+    });
 
-exports.updateOrderStatus = async (req, res) =>
-  sendNotImplemented(res, {
-    owner: 'Thành viên A',
-    endpoint: 'PATCH /api/orders/:id/status',
-    todo: 'Admin duyệt/cập nhật trạng thái đơn (PENDING -> CONFIRMED -> COMPLETED/CANCELLED) và ghi audit_logs.'
-  });
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Lấy danh sách hóa đơn thành công',
+      data: result.items,
+      pagination: result.pagination
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.updateOrderStatus = async (req, res, next) => {
+  try {
+    const data = await ordersService.updateOrderStatus({
+      orderId: req.params.id,
+      status: req.body?.status,
+      user: req.user,
+      req
+    });
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Cập nhật trạng thái đơn hàng thành công',
+      data
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
 
 exports.verifyOrderIntegrity = async (req, res) =>
   sendNotImplemented(res, {
