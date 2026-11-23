@@ -25,35 +25,44 @@ export default function ProductDetailPage() {
 
   return (
     <div className="space-y-6">
-      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-sky-700 hover:underline font-medium">
+      <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-emerald-700 hover:text-emerald-800 hover:underline font-semibold">
         <ArrowLeft className="w-4 h-4" /> Quay lại danh mục
       </Link>
 
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 grid grid-cols-1 md:grid-cols-2 gap-6 shadow-sm">
-        <img src={demoProduct.PathImage} alt={demoProduct.ProductName} className="w-full rounded-xl object-cover" />
+      <div className="bg-white/90 rounded-2xl border border-rose-100/80 p-6 grid grid-cols-1 md:grid-cols-2 gap-6 shadow-sm">
+        {!demoProduct.PathImage || demoProduct.PathImage.includes('placehold.co/600x400/0f172a') ? (
+          <div className="w-full min-h-[260px] rounded-xl bg-gradient-to-br from-emerald-100 via-white to-rose-100 border border-rose-100 flex flex-col items-center justify-center p-6 text-center">
+            <span className="px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold mb-3">
+              {demoProduct.ProductType}
+            </span>
+            <div className="text-lg font-bold text-slate-800 max-w-sm">{demoProduct.ProductName}</div>
+          </div>
+        ) : (
+          <img src={demoProduct.PathImage} alt={demoProduct.ProductName} className="w-full rounded-xl object-cover" />
+        )}
 
         <div className="space-y-4">
-          <span className="inline-block px-2.5 py-1 rounded-full bg-sky-50 text-sky-700 text-xs font-semibold">
+          <span className="inline-block px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 text-xs font-semibold">
             {demoProduct.ProductType}
           </span>
           <h1 className="text-2xl font-bold text-slate-900">{demoProduct.ProductName}</h1>
-          <div className="text-2xl font-extrabold text-sky-700">
+          <div className="text-2xl font-extrabold text-emerald-700">
             {demoProduct.Price.toLocaleString('vi-VN')} đ{' '}
             <span className="text-xs font-normal text-slate-500">/ {demoProduct.Unit}</span>
           </div>
           <p className="text-sm text-slate-600">{demoProduct.Description}</p>
 
-          <div className="p-3 rounded-xl bg-slate-950 text-slate-200 space-y-1">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+          <div className="p-3 rounded-xl bg-emerald-50/70 border border-emerald-200 text-slate-800 space-y-1">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-800">
               <FileCheck2 className="w-4 h-4" /> Mã kiểm chứng toàn vẹn tệp (SHA-256)
             </div>
-            <div className="font-mono text-[11px] break-all text-slate-300">{demoProduct.FileSha256}</div>
+            <div className="font-mono text-[11px] break-all text-slate-700">{demoProduct.FileSha256}</div>
           </div>
 
           <button
             type="button"
             onClick={() => addItem(demoProduct, 1)}
-            className="w-full py-3 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm inline-flex items-center justify-center gap-2"
+            className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm inline-flex items-center justify-center gap-2 transition"
           >
             <ShoppingBag className="w-4 h-4" /> Thêm vào giỏ hàng
           </button>

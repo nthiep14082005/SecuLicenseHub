@@ -43,12 +43,12 @@ export default function ImportExportBarStub({
   }, [onCloseExportMenu]);
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-2">
+    <div className="relative z-30 bg-white/95 rounded-xl border border-rose-100/80 shadow-sm p-3 flex flex-wrap items-center justify-between gap-2">
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="button"
           onClick={onOpenCreate}
-          className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition"
+          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-sm"
         >
           <Plus className="w-4 h-4" /> Thêm mới (Alt+N)
         </button>
@@ -57,7 +57,7 @@ export default function ImportExportBarStub({
           type="button"
           onClick={onBulkClone}
           disabled={selectedCount === 0}
-          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-45 disabled:cursor-not-allowed text-white text-xs font-semibold inline-flex items-center gap-1.5 transition"
+          className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 disabled:opacity-45 disabled:cursor-not-allowed text-white text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-sm"
         >
           <CopyPlus className="w-4 h-4" /> Sao chép nhiều {selectedCount > 0 ? `(${selectedCount})` : ''} (Alt+C)
         </button>
@@ -66,7 +66,7 @@ export default function ImportExportBarStub({
           type="button"
           onClick={onBulkDelete}
           disabled={selectedCount === 0}
-          className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 disabled:opacity-45 disabled:cursor-not-allowed text-white text-xs font-semibold inline-flex items-center gap-1.5 transition"
+          className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-45 disabled:cursor-not-allowed text-white text-xs font-semibold inline-flex items-center gap-1.5 transition shadow-sm"
         >
           <Trash2 className="w-4 h-4" /> Xóa nhiều {selectedCount > 0 ? `(${selectedCount})` : ''} (Alt+D)
         </button>
@@ -89,9 +89,9 @@ export default function ImportExportBarStub({
           type="button"
           disabled={importing}
           onClick={() => importInputRef?.current?.click()}
-          className="px-3 py-1.5 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 disabled:opacity-60 font-medium inline-flex items-center gap-1.5"
+          className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 disabled:opacity-60 font-medium inline-flex items-center gap-1.5 transition"
         >
-          <Upload className="w-3.5 h-3.5 text-slate-600" />
+          <Upload className="w-3.5 h-3.5 text-amber-700" />
           <span>{importing ? 'Đang Import...' : 'Import .xlsx/.json/.xml (Alt+I)'}</span>
         </button>
 
@@ -100,19 +100,19 @@ export default function ImportExportBarStub({
             type="button"
             disabled={exporting}
             onClick={onToggleExportMenu}
-            className="px-3 py-1.5 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 disabled:opacity-60 font-medium inline-flex items-center gap-1.5"
+            className="px-3 py-1.5 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 disabled:opacity-60 font-medium inline-flex items-center gap-1.5 transition"
           >
-            <Download className="w-3.5 h-3.5 text-slate-600" />
+            <Download className="w-3.5 h-3.5 text-amber-700" />
             <span>{exporting ? 'Đang xuất...' : 'Export (Alt+X)'}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
+            <ChevronDown className="w-3.5 h-3.5 text-amber-700" />
           </button>
 
           {exportMenuOpen && (
-            <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-xl border border-slate-200 shadow-xl z-30 py-1.5">
+            <div className="absolute right-0 mt-1.5 w-52 bg-white rounded-xl border border-rose-100 shadow-xl z-50 py-1.5">
               <button
                 type="button"
                 onClick={() => onExportFormat?.('xlsx')}
-                className="w-full px-3 py-2 text-left text-xs hover:bg-slate-50 flex items-center gap-2 text-slate-700"
+                className="w-full px-3 py-2 text-left text-xs hover:bg-emerald-50 flex items-center gap-2 text-slate-700"
               >
                 <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
                 <span>Xuất Excel (.xlsx)</span>
@@ -120,7 +120,7 @@ export default function ImportExportBarStub({
               <button
                 type="button"
                 onClick={() => onExportFormat?.('json')}
-                className="w-full px-3 py-2 text-left text-xs hover:bg-slate-50 flex items-center gap-2 text-slate-700"
+                className="w-full px-3 py-2 text-left text-xs hover:bg-amber-50 flex items-center gap-2 text-slate-700"
               >
                 <FileJson className="w-4 h-4 text-amber-600" />
                 <span>Xuất JSON (.json)</span>
@@ -128,9 +128,9 @@ export default function ImportExportBarStub({
               <button
                 type="button"
                 onClick={() => onExportFormat?.('xml')}
-                className="w-full px-3 py-2 text-left text-xs hover:bg-slate-50 flex items-center gap-2 text-slate-700"
+                className="w-full px-3 py-2 text-left text-xs hover:bg-rose-50 flex items-center gap-2 text-slate-700"
               >
-                <FileCode2 className="w-4 h-4 text-sky-600" />
+                <FileCode2 className="w-4 h-4 text-rose-600" />
                 <span>Xuất XML (.xml)</span>
               </button>
             </div>
@@ -140,9 +140,9 @@ export default function ImportExportBarStub({
         <button
           type="button"
           onClick={onOpenShortcuts}
-          className="px-3 py-1.5 rounded-lg border border-sky-300 bg-sky-50 text-sky-800 hover:bg-sky-100 font-semibold inline-flex items-center gap-1.5"
+          className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-semibold inline-flex items-center gap-1.5 transition"
         >
-          <HelpCircle className="w-3.5 h-3.5" /> Phím tắt (Alt+H)
+          <HelpCircle className="w-3.5 h-3.5 text-amber-600" /> Phím tắt (Alt+H)
         </button>
       </div>
     </div>

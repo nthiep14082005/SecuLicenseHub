@@ -20,9 +20,9 @@ export default function ContactPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5">
+    <div className="max-w-2xl mx-auto bg-white/90 rounded-2xl border border-rose-100/80 p-6 shadow-sm space-y-5">
       <div className="flex items-center gap-2.5">
-        <Mail className="w-6 h-6 text-sky-600" />
+        <Mail className="w-6 h-6 text-emerald-600" />
         <div>
           <h1 className="text-xl font-bold text-slate-900">Liên hệ &amp; Hỗ trợ Bản quyền</h1>
           <p className="text-xs text-slate-600">Mọi dữ liệu đầu vào được lọc XSS ở middleware trước khi lưu PostgreSQL.</p>
@@ -38,7 +38,7 @@ export default function ContactPage() {
               required
               value={form.fullName}
               onChange={(e) => setForm({ ...form, fullName: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
           <div>
@@ -48,7 +48,7 @@ export default function ContactPage() {
               required
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
         </div>
@@ -59,7 +59,7 @@ export default function ContactPage() {
             required
             value={form.subject}
             onChange={(e) => setForm({ ...form, subject: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
         <div>
@@ -69,13 +69,13 @@ export default function ContactPage() {
             required
             value={form.message}
             onChange={(e) => setForm({ ...form, message: e.target.value })}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 
         <button
           type="submit"
-          className="px-5 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm inline-flex items-center gap-2"
+          className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm inline-flex items-center gap-2 transition"
         >
           <Send className="w-4 h-4" /> Gửi yêu cầu hỗ trợ
         </button>
@@ -85,7 +85,7 @@ export default function ContactPage() {
         <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">{notice}</div>
       )}
 
-      <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 flex items-start gap-2">
+      <div className="p-3 rounded-xl bg-rose-50/40 border border-rose-100 text-xs text-slate-700 flex items-start gap-2">
         <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
         <span>
           TODO [Thành viên B]: Khi demo Stored XSS, thử nhập <code>&lt;script&gt;alert(1)&lt;/script&gt;</code> và kiểm tra Admin đọc phản hồi không bị thực thi mã độc.

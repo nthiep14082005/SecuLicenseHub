@@ -15,7 +15,7 @@ import axiosClient from '../../api/axiosClient';
 const SEVERITY_FILTERS = ['ALL', 'INFO', 'WARN', 'HIGH', 'CRITICAL'];
 
 const SEVERITY_BADGE_MAP = {
-  INFO: 'bg-sky-50 text-sky-800 border-sky-200',
+  INFO: 'bg-emerald-50 text-emerald-800 border-emerald-200',
   WARN: 'bg-amber-50 text-amber-800 border-amber-200',
   HIGH: 'bg-orange-100 text-orange-900 border-orange-300',
   CRITICAL: 'bg-rose-100 text-rose-900 border-rose-300 font-bold'
@@ -108,7 +108,7 @@ export default function AdminSecurityPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-slate-800">
             Nhật ký Kiểm toán &amp; Phân tích Bảo mật AI
           </h1>
           <p className="text-xs text-slate-600">
@@ -121,7 +121,7 @@ export default function AdminSecurityPage() {
             type="button"
             onClick={fetchSecurityData}
             disabled={loading}
-            className="px-3 py-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-medium inline-flex items-center gap-1.5"
+            className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium inline-flex items-center gap-1.5"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             <span>Làm mới</span>
@@ -131,7 +131,7 @@ export default function AdminSecurityPage() {
             type="button"
             onClick={handleAnalyzeLogs}
             disabled={aiLoading}
-            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-2"
+            className="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 disabled:opacity-60 text-white text-xs font-semibold inline-flex items-center gap-2 shadow-sm transition"
           >
             <Bot className="w-4 h-4" />
             <span>{aiLoading ? 'Đang phân tích...' : 'Phân tích bằng AI'}</span>
@@ -142,13 +142,13 @@ export default function AdminSecurityPage() {
       {/* Thống kê tổng quan theo severity */}
       {summary && (
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <div className="bg-white rounded-xl border border-slate-200 p-3.5">
+          <div className="bg-white/90 rounded-xl border border-rose-100/80 p-3.5 shadow-sm">
             <div className="text-[11px] text-slate-500 font-medium">Tổng sự kiện (24h: {summary.last24hLogs})</div>
             <div className="text-xl font-bold text-slate-900 mt-1">{summary.totalLogs}</div>
           </div>
-          <div className="bg-sky-50 rounded-xl border border-sky-200 p-3.5">
-            <div className="text-[11px] text-sky-700 font-semibold">INFO</div>
-            <div className="text-xl font-bold text-sky-900 mt-1">{summary.bySeverity?.INFO ?? 0}</div>
+          <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-3.5">
+            <div className="text-[11px] text-emerald-700 font-semibold">INFO</div>
+            <div className="text-xl font-bold text-emerald-900 mt-1">{summary.bySeverity?.INFO ?? 0}</div>
           </div>
           <div className="bg-amber-50 rounded-xl border border-amber-200 p-3.5">
             <div className="text-[11px] text-amber-700 font-semibold">WARN</div>
@@ -172,8 +172,8 @@ export default function AdminSecurityPage() {
             aiState.type === 'pending'
               ? 'bg-amber-50 border-amber-200 text-amber-900'
               : aiState.type === 'error'
-              ? 'bg-rose-50 border-rose-200 text-rose-900'
-              : 'bg-indigo-50 border-indigo-200 text-indigo-950'
+              ? 'bg-red-50 border-red-200 text-red-700'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-950'
           }`}
         >
           <div className="flex items-center gap-2 font-semibold">
@@ -182,7 +182,7 @@ export default function AdminSecurityPage() {
             ) : aiState.type === 'error' ? (
               <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             ) : (
-              <ShieldCheck className="w-4 h-4 text-indigo-700 shrink-0" />
+              <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0" />
             )}
             <span>{aiState.message}</span>
           </div>
@@ -216,14 +216,14 @@ export default function AdminSecurityPage() {
       )}
 
       {errorMsg && (
-        <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-center gap-2">
+        <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
       {/* Bộ lọc severity & tìm kiếm */}
-      <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-rose-100/80 shadow-sm p-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
           {SEVERITY_FILTERS.map((sev) => (
             <button
@@ -235,8 +235,8 @@ export default function AdminSecurityPage() {
               }}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
                 severityFilter === sev
-                  ? 'bg-slate-900 text-white border-slate-900'
-                  : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                  ? 'bg-emerald-600 text-white border-emerald-600'
+                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
               }`}
             >
               {sev === 'ALL' ? 'Tất cả' : sev}
@@ -259,12 +259,12 @@ export default function AdminSecurityPage() {
               value={keywordInput}
               onChange={(e) => setKeywordInput(e.target.value)}
               placeholder="Lọc action / resource / email..."
-              className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 text-xs w-56"
+              className="pl-8 pr-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs w-56 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
           <button
             type="submit"
-            className="px-3 py-1.5 rounded-lg bg-slate-900 text-white text-xs font-semibold"
+            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold"
           >
             Lọc
           </button>
@@ -272,10 +272,10 @@ export default function AdminSecurityPage() {
       </div>
 
       {/* Bảng audit_logs */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-rose-100/80 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-600">
+            <thead className="bg-gradient-to-r from-rose-50/70 to-emerald-50/70 border-b border-rose-100/80 text-xs uppercase text-slate-600">
               <tr>
                 <th className="p-3">ID</th>
                 <th className="p-3">Mức độ</th>
@@ -286,7 +286,7 @@ export default function AdminSecurityPage() {
                 <th className="p-3">Thời gian</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-rose-100/60">
               {loading ? (
                 <tr>
                   <td colSpan={7} className="p-8 text-center text-xs text-slate-500">
@@ -301,7 +301,7 @@ export default function AdminSecurityPage() {
                 </tr>
               ) : (
                 logs.map((log) => (
-                  <tr key={log.logId} className="hover:bg-slate-50">
+                  <tr key={log.logId} className="hover:bg-rose-50/40">
                     <td className="p-3 font-mono text-xs text-slate-600">{log.logId}</td>
                     <td className="p-3 whitespace-nowrap">
                       <span
@@ -332,7 +332,7 @@ export default function AdminSecurityPage() {
           </table>
         </div>
 
-        <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-600">
+        <div className="px-4 py-3 border-t border-rose-100/80 bg-rose-50/30 flex items-center justify-between text-xs text-slate-600">
           <span>
             Tổng <strong>{pagination.totalItems}</strong> bản ghi nhật ký
           </span>
@@ -341,7 +341,7 @@ export default function AdminSecurityPage() {
               type="button"
               disabled={pagination.page <= 1}
               onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
-              className="px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 inline-flex items-center gap-1"
+              className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 disabled:opacity-40 inline-flex items-center gap-1"
             >
               <ChevronLeft className="w-3.5 h-3.5" /> Trước
             </button>
@@ -352,7 +352,7 @@ export default function AdminSecurityPage() {
               type="button"
               disabled={pagination.page >= pagination.totalPages}
               onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
-              className="px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 inline-flex items-center gap-1"
+              className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 disabled:opacity-40 inline-flex items-center gap-1"
             >
               Sau <ChevronRight className="w-3.5 h-3.5" />
             </button>

@@ -32,8 +32,8 @@ export default function LicenseVaultPage() {
             License Key được mã hóa AES-256-GCM trong PostgreSQL và chỉ giải mã cho đúng chủ sở hữu.
           </p>
         </div>
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 text-emerald-400 text-xs font-medium">
-          <ReceiptText className="w-4 h-4" /> Anti-IDOR + Signed URL 300s
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-semibold">
+          <ReceiptText className="w-4 h-4 text-emerald-700" /> Anti-IDOR + Signed URL 300s
         </span>
       </div>
 

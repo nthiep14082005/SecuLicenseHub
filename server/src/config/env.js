@@ -76,6 +76,16 @@ const env = {
     bankId: process.env.VIETQR_BANK_ID || 'MB',
     accountNo: process.env.VIETQR_ACCOUNT_NO || '0123456789',
     accountName: process.env.VIETQR_ACCOUNT_NAME || 'SECULICENSE HUB'
+  },
+
+  smtp: {
+    user: (process.env.SMTP_USER || '').trim(),
+    pass: (process.env.SMTP_PASS || '').trim()
+  },
+
+  whatsapp: {
+    token: (process.env.WHATSAPP_TOKEN || '').trim(),
+    phoneNumberId: (process.env.WHATSAPP_PHONE_NUMBER_ID || '').trim()
   }
 };
 

@@ -97,19 +97,16 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-2xl p-6 space-y-5">
+    <div className="min-h-screen bg-gradient-to-br from-rose-100 via-white to-emerald-100 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white/90 backdrop-blur-md border border-rose-100/80 rounded-2xl shadow-xl p-6 space-y-5 text-slate-800">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-6 h-6 text-emerald-600" />
             <div>
-              <h1 className="text-xl font-bold text-slate-900">Đăng ký Tài khoản</h1>
+              <h1 className="text-xl font-bold text-slate-800">Đăng ký Tài khoản</h1>
               <p className="text-[11px] text-slate-500">Mặc định quyền Khách hàng · Băm mật khẩu Bcrypt</p>
             </div>
           </div>
-          <Link to="/" className="text-xs text-sky-600 font-medium hover:underline">
-            Về Portal
-          </Link>
         </div>
 
         {alert && (
@@ -117,7 +114,7 @@ export default function RegisterPage() {
             className={`p-3 rounded-xl border text-xs flex items-start gap-2 ${
               alert.type === 'success'
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                : 'bg-rose-50 border-rose-200 text-rose-900'
+                : 'bg-red-50 border-red-200 text-red-700'
             }`}
           >
             {alert.type === 'success' ? (
@@ -138,7 +135,7 @@ export default function RegisterPage() {
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               placeholder="Nguyễn Minh Quân"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
@@ -151,7 +148,7 @@ export default function RegisterPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="user@seculicense.vn"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
@@ -166,7 +163,7 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="VD: SecuPass@2026"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
             <div className="mt-2 space-y-2">
               <div className="h-1.5 w-full bg-slate-200 rounded-full overflow-hidden">
@@ -205,14 +202,14 @@ export default function RegisterPage() {
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Nhập lại mật khẩu"
-              className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+              className="w-full px-3 py-2 rounded-lg border border-slate-300 bg-white text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-semibold text-sm flex items-center justify-center gap-2 transition"
+            className="w-full py-2.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white font-semibold text-sm flex items-center justify-center gap-2 transition shadow-sm"
           >
             <UserPlus className="w-4 h-4" />
             <span>{submitting ? 'Đang tạo tài khoản...' : 'Tạo tài khoản Khách hàng'}</span>
@@ -221,7 +218,7 @@ export default function RegisterPage() {
 
         <p className="text-xs text-center text-slate-600">
           Đã có tài khoản?{' '}
-          <Link to="/login" className="text-sky-600 font-semibold hover:underline">
+          <Link to="/login" className="text-emerald-700 hover:text-emerald-800 font-semibold hover:underline">
             Đăng nhập
           </Link>
         </p>

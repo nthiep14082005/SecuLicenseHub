@@ -28,7 +28,7 @@ export default function VoiceMicButtonStub({ onTranscript }) {
       className={`p-2 rounded-lg border transition ${
         listening
           ? 'bg-rose-600 border-rose-500 text-white animate-pulse'
-          : 'bg-slate-900 border-slate-700 text-slate-300 hover:text-white hover:border-sky-500'
+          : 'bg-amber-50 border-amber-200 text-amber-800 hover:bg-amber-100'
       }`}
     >
       {listening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}

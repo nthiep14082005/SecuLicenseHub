@@ -29,12 +29,12 @@ export default function CheckoutPage() {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 p-5 space-y-4">
+      <div className="lg:col-span-2 bg-white/90 rounded-2xl border border-rose-100/80 shadow-sm p-5 space-y-4">
         <h1 className="text-xl font-bold text-slate-900">Giỏ hàng Bản quyền Số</h1>
         {items.length === 0 ? (
           <p className="text-sm text-slate-500">Giỏ hàng đang trống. Hãy chọn gói bản quyền ở trang Danh mục.</p>
         ) : (
-          <div className="divide-y divide-slate-100">
+          <div className="divide-y divide-rose-100/60">
             {items.map((item) => (
               <div key={item.ProductID} className="py-3 flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -49,7 +49,7 @@ export default function CheckoutPage() {
                     min={1}
                     value={item.Quantity}
                     onChange={(e) => updateQuantity(item.ProductID, Number(e.target.value))}
-                    className="w-16 px-2 py-1 border border-slate-300 rounded text-sm"
+                    className="w-16 px-2 py-1 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                   <button
                     type="button"
@@ -65,7 +65,7 @@ export default function CheckoutPage() {
         )}
       </div>
 
-      <form onSubmit={handlePlaceOrder} className="bg-white rounded-2xl border border-slate-200 p-5 space-y-4 h-fit">
+      <form onSubmit={handlePlaceOrder} className="bg-white/90 rounded-2xl border border-rose-100/80 shadow-sm p-5 space-y-4 h-fit">
         <h2 className="font-bold text-slate-900">Thanh toán An toàn (VietQR + HMAC)</h2>
 
         <div>
@@ -73,7 +73,7 @@ export default function CheckoutPage() {
           <select
             value={paymentMethod}
             onChange={(e) => setPaymentMethod(e.target.value)}
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <option value="VIETQR">Chuyển khoản QR (VietQR động)</option>
             <option value="BANK_TRANSFER">Chuyển khoản ngân hàng</option>
@@ -87,18 +87,18 @@ export default function CheckoutPage() {
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="Email nhận thông báo hóa đơn..."
-            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm"
+            className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
           />
         </div>
 
-        <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+        <div className="p-3 rounded-xl bg-rose-50/40 border border-rose-100 flex items-center justify-between">
           <span className="text-sm font-medium text-slate-600">Tạm tính:</span>
-          <span className="text-lg font-bold text-sky-700">{totalAmount.toLocaleString('vi-VN')} đ</span>
+          <span className="text-lg font-bold text-emerald-700">{totalAmount.toLocaleString('vi-VN')} đ</span>
         </div>
 
-        <div className="p-3 rounded-xl bg-sky-50 border border-sky-200 text-xs text-sky-900 space-y-1">
+        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 space-y-1">
           <div className="font-semibold flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4" /> Phòng chống Sửa giá (Price Tampering)
+            <ShieldCheck className="w-4 h-4 text-emerald-700" /> Phòng chống Sửa giá (Price Tampering)
           </div>
           <p>
             Backend tự truy vấn giá gốc từ PostgreSQL trong Transaction <code>FOR UPDATE</code> và ký{' '}
@@ -108,7 +108,7 @@ export default function CheckoutPage() {
 
         <button
           type="submit"
-          className="w-full py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white font-semibold text-sm inline-flex items-center justify-center gap-2"
+          className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-sm inline-flex items-center justify-center gap-2 transition"
         >
           <QrCode className="w-4 h-4" /> Xác nhận Đặt hàng &amp; Sinh VietQR
         </button>

@@ -50,24 +50,24 @@ export default function OcrUploaderStub({ onExtracted }) {
   };
 
   return (
-    <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-3.5 space-y-2">
+    <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-3.5 space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-start gap-2.5">
-          <div className="p-2 rounded-lg bg-indigo-600 text-white shrink-0">
+          <div className="p-2 rounded-lg bg-amber-500 text-white shrink-0">
             <ScanLine className="w-4 h-4" />
           </div>
           <div>
-            <h4 className="font-semibold text-indigo-950 text-xs">
+            <h4 className="font-semibold text-amber-950 text-xs">
               AI OCR Tự động điền Form (Gemini Vision)
             </h4>
-            <p className="text-[11px] text-indigo-800">
+            <p className="text-[11px] text-amber-800">
               Chọn ảnh phiếu nhập/hóa đơn (kiểm tra Magic Bytes) để tự điền 6 trường Product.
             </p>
           </div>
         </div>
 
         <label
-          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold cursor-pointer ${
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold cursor-pointer transition ${
             loading ? 'opacity-60 pointer-events-none' : ''
           }`}
         >
@@ -94,7 +94,7 @@ export default function OcrUploaderStub({ onExtracted }) {
               ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
               : status.type === 'warning'
               ? 'bg-amber-50 border-amber-200 text-amber-900'
-              : 'bg-rose-50 border-rose-200 text-rose-800'
+              : 'bg-red-50 border-red-200 text-red-700'
           }`}
         >
           {status.type === 'success' ? (

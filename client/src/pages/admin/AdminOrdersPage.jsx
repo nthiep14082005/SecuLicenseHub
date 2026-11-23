@@ -15,9 +15,9 @@ const STATUS_FILTERS = ['ALL', 'PENDING', 'CONFIRMED', 'COMPLETED', 'CANCELLED']
 
 const STATUS_BADGE_STYLES = {
   PENDING: 'bg-amber-50 text-amber-800 border-amber-200',
-  CONFIRMED: 'bg-sky-50 text-sky-800 border-sky-200',
-  COMPLETED: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  CANCELLED: 'bg-rose-50 text-rose-800 border-rose-200'
+  CONFIRMED: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  COMPLETED: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+  CANCELLED: 'bg-red-50 text-red-700 border-red-200'
 };
 
 /**
@@ -130,7 +130,7 @@ export default function AdminOrdersPage() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-slate-800">
             Quản lý Hóa đơn &amp; Kiểm chứng HMAC-SHA256
           </h1>
           <p className="text-xs text-slate-600">
@@ -142,7 +142,7 @@ export default function AdminOrdersPage() {
           type="button"
           onClick={fetchOrders}
           disabled={loading}
-          className="px-3 py-1.5 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-xs font-medium inline-flex items-center gap-1.5"
+          className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium inline-flex items-center gap-1.5"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           <span>Làm mới</span>
@@ -161,8 +161,8 @@ export default function AdminOrdersPage() {
             }}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition ${
               statusFilter === st
-                ? 'bg-slate-900 text-white border-slate-900'
-                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                ? 'bg-emerald-600 text-white border-emerald-600'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
             }`}
           >
             {st === 'ALL' ? 'Tất cả' : st}
@@ -176,8 +176,8 @@ export default function AdminOrdersPage() {
             feedback.type === 'success'
               ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
               : feedback.type === 'info'
-              ? 'bg-sky-50 border-sky-200 text-sky-900'
-              : 'bg-rose-50 border-rose-200 text-rose-900'
+              ? 'bg-amber-50 border-amber-200 text-amber-900'
+              : 'bg-red-50 border-red-200 text-red-700'
           }`}
         >
           {feedback.type === 'success' ? (
@@ -189,10 +189,10 @@ export default function AdminOrdersPage() {
         </div>
       )}
 
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white/90 backdrop-blur-sm rounded-xl border border-rose-100/80 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200 text-xs uppercase text-slate-600">
+            <thead className="bg-gradient-to-r from-rose-50/70 to-emerald-50/70 border-b border-rose-100/80 text-xs uppercase text-slate-600">
               <tr>
                 <th className="p-3">Mã đơn</th>
                 <th className="p-3">Khách hàng</th>
@@ -204,7 +204,7 @@ export default function AdminOrdersPage() {
                 <th className="p-3 text-right">Duyệt / Thao tác</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-rose-100/60">
               {loading ? (
                 <tr>
                   <td colSpan={8} className="p-8 text-center text-xs text-slate-500">
@@ -219,7 +219,7 @@ export default function AdminOrdersPage() {
                 </tr>
               ) : (
                 orders.map((ord) => (
-                  <tr key={ord.orderId} className="hover:bg-slate-50">
+                  <tr key={ord.orderId} className="hover:bg-rose-50/40">
                     <td className="p-3 font-mono text-xs font-semibold">#{ord.orderId}</td>
                     <td className="p-3">
                       <div className="font-medium text-slate-900 text-xs">
@@ -243,11 +243,11 @@ export default function AdminOrdersPage() {
                     </td>
                     <td className="p-3 whitespace-nowrap">
                       {ord.hmacValid ? (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-xs font-medium">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 text-xs font-medium">
                           <ShieldCheck className="w-3.5 h-3.5" /> HMAC Hợp lệ
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-100 text-rose-800 text-xs font-semibold">
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-100 text-rose-800 border border-rose-200 text-xs font-semibold">
                           <ShieldAlert className="w-3.5 h-3.5" /> Sai lệch HMAC!
                         </span>
                       )}
@@ -268,7 +268,7 @@ export default function AdminOrdersPage() {
                             type="button"
                             disabled={updatingOrderId === ord.orderId}
                             onClick={() => handleStatusChange(ord, 'CONFIRMED')}
-                            className="px-2.5 py-1 rounded bg-sky-600 hover:bg-sky-500 disabled:opacity-60 text-white text-xs font-medium inline-flex items-center gap-1"
+                            className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-medium inline-flex items-center gap-1"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" /> Duyệt
                           </button>
@@ -278,7 +278,7 @@ export default function AdminOrdersPage() {
                           disabled={updatingOrderId === ord.orderId}
                           onChange={(e) => handleStatusChange(ord, e.target.value)}
                           aria-label={`Đổi trạng thái đơn ${ord.orderId}`}
-                          className="px-2 py-1 rounded border border-slate-300 bg-white text-xs font-medium text-slate-700"
+                          className="px-2 py-1 rounded border border-slate-200 bg-white text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                         >
                           <option value="PENDING">PENDING</option>
                           <option value="CONFIRMED">CONFIRMED</option>
@@ -289,7 +289,7 @@ export default function AdminOrdersPage() {
                           type="button"
                           onClick={() => handleVerifyIntegrity(ord.orderId)}
                           title="Kiểm chứng HMAC-SHA256"
-                          className="px-2.5 py-1 rounded border border-slate-300 hover:bg-slate-100 text-xs font-medium inline-flex items-center gap-1"
+                          className="px-2.5 py-1 rounded bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 text-xs font-medium inline-flex items-center gap-1"
                         >
                           <ReceiptText className="w-3.5 h-3.5" /> HMAC
                         </button>
@@ -302,7 +302,7 @@ export default function AdminOrdersPage() {
           </table>
         </div>
 
-        <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-600">
+        <div className="px-4 py-3 border-t border-rose-100/80 bg-rose-50/30 flex items-center justify-between text-xs text-slate-600">
           <span>
             Tổng <strong>{pagination.totalItems}</strong> hóa đơn
           </span>
@@ -311,7 +311,7 @@ export default function AdminOrdersPage() {
               type="button"
               disabled={pagination.page <= 1}
               onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
-              className="px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 inline-flex items-center gap-1"
+              className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 disabled:opacity-40 inline-flex items-center gap-1"
             >
               <ChevronLeft className="w-3.5 h-3.5" /> Trước
             </button>
@@ -322,7 +322,7 @@ export default function AdminOrdersPage() {
               type="button"
               disabled={pagination.page >= pagination.totalPages}
               onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
-              className="px-2.5 py-1 rounded border border-slate-300 bg-white hover:bg-slate-100 disabled:opacity-40 inline-flex items-center gap-1"
+              className="px-2.5 py-1 rounded bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 disabled:opacity-40 inline-flex items-center gap-1"
             >
               Sau <ChevronRight className="w-3.5 h-3.5" />
             </button>

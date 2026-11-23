@@ -58,6 +58,14 @@ const SAMPLE_CATALOG = [
   }
 ];
 
+const PASTEL_COVERS = {
+  'License Key': 'from-rose-100 to-amber-50',
+  'Source Code': 'from-emerald-100 to-teal-50',
+  'Plugin & UI Kit': 'from-pink-100 to-emerald-50',
+  'API Quota': 'from-amber-100 to-rose-50',
+  'E-Book Kỹ thuật': 'from-emerald-100 to-rose-50'
+};
+
 /**
  * [Form #3 — Thành viên B] Danh sách Gói Bản quyền & Tài nguyên Số (Tích hợp Meilisearch + Voice).
  */
@@ -78,21 +86,21 @@ export default function CatalogPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-sky-950 text-white p-6 flex flex-wrap items-center justify-between gap-4">
+      <div className="rounded-2xl bg-gradient-to-r from-rose-100 via-white to-emerald-100 border border-rose-200/70 text-slate-800 p-6 flex flex-wrap items-center justify-between gap-4 shadow-sm">
         <div className="space-y-1.5 max-w-2xl">
-          <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-sky-300 bg-sky-500/10 border border-sky-400/30 px-2.5 py-1 rounded-full">
+          <div className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-100/80 border border-emerald-200 px-2.5 py-1 rounded-full">
             <ShieldCheck className="w-3.5 h-3.5" /> Nền tảng Phân phối Bản quyền Số An toàn
           </div>
-          <h1 className="text-2xl font-bold">Kho Bản quyền Phần mềm, Mã nguồn &amp; Tài nguyên Số</h1>
-          <p className="text-sm text-slate-300">
+          <h1 className="text-2xl font-bold text-slate-900">Kho Bản quyền Phần mềm, Mã nguồn &amp; Tài nguyên Số</h1>
+          <p className="text-sm text-slate-600">
             Mỗi sản phẩm đi kèm mã kiểm chứng toàn vẹn SHA-256, cấp License Key mã hóa AES-256-GCM và hóa đơn xác thực HMAC-SHA256.
           </p>
         </div>
-        <div className="text-xs bg-white/10 border border-white/15 rounded-xl p-3 space-y-1">
-          <div className="font-semibold flex items-center gap-1.5 text-amber-300">
+        <div className="text-xs bg-amber-50/90 border border-amber-200 rounded-xl p-3 space-y-1 text-amber-900">
+          <div className="font-semibold flex items-center gap-1.5 text-amber-800">
             <Sparkles className="w-4 h-4" /> TODO [Thành viên B]:
           </div>
-          <p className="text-slate-200">Nạp 45 sản phẩm từ PostgreSQL (`GET /api/products`) &amp; Meilisearch (`GET /api/search`).</p>
+          <p className="text-amber-900">Nạp 45 sản phẩm từ PostgreSQL (`GET /api/products`) &amp; Meilisearch (`GET /api/search`).</p>
         </div>
       </div>
 
@@ -104,8 +112,8 @@ export default function CatalogPage() {
             onClick={() => setSelectedType(type)}
             className={`px-3.5 py-1.5 rounded-full text-xs font-semibold border transition ${
               selectedType === type
-                ? 'bg-sky-600 text-white border-sky-600'
-                : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                ? 'bg-emerald-600 text-white border-emerald-600'
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
             }`}
           >
             {type}
@@ -114,40 +122,54 @@ export default function CatalogPage() {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-        {filtered.map((item) => (
-          <div key={item.ProductID} className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm flex flex-col">
-            <img src={item.PathImage} alt={item.ProductName} className="w-full h-44 object-cover" />
-            <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-              <div className="space-y-1.5">
-                <span className="inline-block px-2 py-0.5 rounded bg-sky-50 text-sky-700 text-[11px] font-semibold">
-                  {item.ProductType}
-                </span>
-                <Link
-                  to={`/products/${item.ProductID}`}
-                  className="block font-bold text-slate-900 hover:text-sky-600 text-base"
-                >
-                  {item.ProductName}
-                </Link>
-                <p className="text-xs text-slate-600 line-clamp-2">{item.Description}</p>
-              </div>
-              <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
-                <div>
-                  <div className="text-base font-bold text-slate-900">{item.Price.toLocaleString('vi-VN')} đ</div>
-                  <div className="text-[11px] text-slate-500">
-                    Còn {item.Quantity} {item.Unit}
-                  </div>
+        {filtered.map((item) => {
+          const isDarkPlaceholder = !item.PathImage || item.PathImage.includes('placehold.co/400x260/0f172a');
+          const coverGradient = PASTEL_COVERS[item.ProductType] || 'from-pink-100 to-emerald-50';
+
+          return (
+            <div key={item.ProductID} className="bg-white/90 rounded-2xl border border-rose-100/80 overflow-hidden shadow-sm hover:shadow-md transition flex flex-col">
+              {isDarkPlaceholder ? (
+                <div className={`w-full h-44 bg-gradient-to-br ${coverGradient} border-b border-rose-100/80 flex flex-col items-center justify-center p-4 text-center`}>
+                  <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-800 bg-white/80 border border-amber-200 px-2.5 py-0.5 rounded-full mb-2">
+                    {item.ProductType}
+                  </span>
+                  <span className="font-bold text-slate-800 text-base line-clamp-2">{item.ProductName}</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => addItem(item, 1)}
-                  className="px-3 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold inline-flex items-center gap-1.5"
-                >
-                  <ShoppingBag className="w-3.5 h-3.5" /> Thêm giỏ
-                </button>
+              ) : (
+                <img src={item.PathImage} alt={item.ProductName} className="w-full h-44 object-cover" />
+              )}
+              <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+                <div className="space-y-1.5">
+                  <span className="inline-block px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200 text-[11px] font-semibold">
+                    {item.ProductType}
+                  </span>
+                  <Link
+                    to={`/products/${item.ProductID}`}
+                    className="block font-bold text-slate-900 hover:text-emerald-700 text-base transition"
+                  >
+                    {item.ProductName}
+                  </Link>
+                  <p className="text-xs text-slate-600 line-clamp-2">{item.Description}</p>
+                </div>
+                <div className="pt-3 border-t border-rose-100/80 flex items-center justify-between">
+                  <div>
+                    <div className="text-base font-bold text-emerald-700">{item.Price.toLocaleString('vi-VN')} đ</div>
+                    <div className="text-[11px] text-slate-500">
+                      Còn {item.Quantity} {item.Unit}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => addItem(item, 1)}
+                    className="px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold inline-flex items-center gap-1.5 transition"
+                  >
+                    <ShoppingBag className="w-3.5 h-3.5" /> Thêm giỏ
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

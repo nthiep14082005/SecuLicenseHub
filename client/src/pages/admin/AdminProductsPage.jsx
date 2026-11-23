@@ -593,16 +593,16 @@ export default function AdminProductsPage() {
         <div
           className={`fixed bottom-5 right-5 z-50 px-4 py-3 rounded-xl shadow-xl border text-xs font-medium flex items-center gap-2 ${
             toast.type === 'success'
-              ? 'bg-emerald-950 text-white border-emerald-700'
+              ? 'bg-emerald-700 text-white border-emerald-600'
               : toast.type === 'warning'
-              ? 'bg-amber-900 text-white border-amber-700'
-              : 'bg-rose-950 text-white border-rose-700'
+              ? 'bg-amber-600 text-white border-amber-500'
+              : 'bg-rose-700 text-white border-rose-600'
           }`}
         >
           {toast.type === 'success' ? (
-            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-emerald-200 shrink-0" />
           ) : (
-            <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0" />
+            <AlertTriangle className="w-4 h-4 text-amber-200 shrink-0" />
           )}
           <span>{toast.message}</span>
         </div>
@@ -610,12 +610,15 @@ export default function AdminProductsPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">
+          <h1 className="text-2xl font-bold text-slate-800">
             Quản trị Kho Bản quyền (Product — 11 Chức năng)
           </h1>
           <p className="text-xs text-slate-600">
             10 trường PascalCase chuẩn · Nhấn{' '}
-            <kbd className="px-1.5 py-0.5 rounded bg-slate-200 font-mono">Alt + H</kbd> để xem 10 phím tắt CRUD.
+            <kbd className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200 font-mono">
+              Alt + H
+            </kbd>{' '}
+            để xem 10 phím tắt CRUD.
           </p>
         </div>
       </div>
@@ -638,7 +641,7 @@ export default function AdminProductsPage() {
       />
 
       {/* Thanh tìm kiếm + lọc ProductType + Ẩn/Hiện cột */}
-      <div className="bg-white rounded-xl border border-slate-200 p-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="relative z-20 bg-white/95 rounded-xl border border-rose-100/80 shadow-sm p-3 flex flex-wrap items-center justify-between gap-3">
         <form onSubmit={handleSearchSubmit} className="flex flex-wrap items-center gap-2 flex-1 min-w-[260px]">
           <div className="relative flex-1 max-w-sm">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -647,7 +650,7 @@ export default function AdminProductsPage() {
               value={keywordInput}
               onChange={(e) => setKeywordInput(e.target.value)}
               placeholder="Tìm theo tên hoặc mô tả sản phẩm..."
-              className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500"
+              className="w-full pl-9 pr-3 py-1.5 rounded-lg border border-slate-300 bg-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
 
@@ -657,7 +660,7 @@ export default function AdminProductsPage() {
               setTypeFilter(e.target.value);
               setPagination((prev) => ({ ...prev, page: 1 }));
             }}
-            className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs bg-white text-slate-700"
+            className="px-3 py-1.5 rounded-lg border border-slate-300 text-xs bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
           >
             <option value="">Tất cả loại (ProductType)</option>
             {PRODUCT_TYPES.map((type) => (
@@ -669,7 +672,7 @@ export default function AdminProductsPage() {
 
           <button
             type="submit"
-            className="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold"
+            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold transition"
           >
             Tìm kiếm
           </button>
@@ -683,7 +686,7 @@ export default function AdminProductsPage() {
                 setTypeFilter('');
                 setPagination((prev) => ({ ...prev, page: 1 }));
               }}
-              className="px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs text-slate-600 hover:bg-slate-50"
+              className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs"
             >
               Đặt lại
             </button>
@@ -703,7 +706,7 @@ export default function AdminProductsPage() {
           className={`rounded-xl border p-4 text-xs space-y-2 ${
             importFeedback.type === 'success'
               ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-              : 'bg-rose-50 border-rose-200 text-rose-900'
+              : 'bg-red-50 border-red-200 text-red-700'
           }`}
         >
           <div className="flex items-center justify-between gap-2">
@@ -759,9 +762,9 @@ export default function AdminProductsPage() {
 
       {/* Modal Thêm / Sửa Product (tích hợp AI OCR & Upload ảnh Magic Bytes) */}
       {formModal.open && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-slate-200 max-h-[92vh] flex flex-col overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-rose-100 max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="px-5 py-4 border-b border-rose-100 flex items-center justify-between shrink-0 bg-gradient-to-r from-rose-50/70 to-emerald-50/70">
               <h2 className="font-bold text-slate-900 text-base">
                 {formModal.mode === 'edit'
                   ? `Cập nhật Sản phẩm #${formModal.productId}`
@@ -787,7 +790,7 @@ export default function AdminProductsPage() {
               <OcrUploaderStub onExtracted={handleOcrExtracted} />
 
               {formError && (
-                <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-900 flex items-center gap-2">
+                <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-xs text-red-700 flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
                   <span>{formError}</span>
                 </div>
@@ -806,7 +809,7 @@ export default function AdminProductsPage() {
                       setFormData((prev) => ({ ...prev, ProductName: e.target.value }))
                     }
                     placeholder="VD: JetBrains All Products Pack 1 Năm"
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
@@ -819,7 +822,7 @@ export default function AdminProductsPage() {
                     onChange={(e) =>
                       setFormData((prev) => ({ ...prev, ProductType: e.target.value }))
                     }
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     {PRODUCT_TYPES.map((type) => (
                       <option key={type} value={type}>
@@ -834,7 +837,7 @@ export default function AdminProductsPage() {
                   <select
                     value={formData.Unit}
                     onChange={(e) => setFormData((prev) => ({ ...prev, Unit: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   >
                     {UNIT_OPTIONS.map((unit) => (
                       <option key={unit} value={unit}>
@@ -856,7 +859,7 @@ export default function AdminProductsPage() {
                     onChange={(e) =>
                       setFormData((prev) => ({ ...prev, Quantity: e.target.value }))
                     }
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
@@ -870,7 +873,7 @@ export default function AdminProductsPage() {
                     required
                     value={formData.Price}
                     onChange={(e) => setFormData((prev) => ({ ...prev, Price: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
@@ -886,17 +889,17 @@ export default function AdminProductsPage() {
                         setFormData((prev) => ({ ...prev, PathImage: e.target.value }))
                       }
                       placeholder="/uploads/products/... hoặc https://..."
-                      className="flex-1 min-w-[200px] px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono"
+                      className="flex-1 min-w-[200px] px-3 py-2 rounded-lg border border-slate-300 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                     <label
-                      className={`px-3 py-2 rounded-lg border border-slate-300 bg-slate-50 hover:bg-slate-100 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer ${
+                      className={`px-3 py-2 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 text-xs font-semibold inline-flex items-center gap-1.5 cursor-pointer ${
                         imageUploading ? 'opacity-60 pointer-events-none' : ''
                       }`}
                     >
                       {imageUploading ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        <Upload className="w-4 h-4 text-sky-600" />
+                        <Upload className="w-4 h-4 text-amber-700" />
                       )}
                       <span>{imageUploading ? 'Đang tải...' : 'Upload ảnh'}</span>
                       <input
@@ -933,23 +936,23 @@ export default function AdminProductsPage() {
                       setFormData((prev) => ({ ...prev, Description: e.target.value }))
                     }
                     placeholder="Mô tả tính năng, thời hạn bản quyền, cấu hình yêu cầu..."
-                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-slate-200 flex items-center justify-end gap-2">
+              <div className="pt-2 border-t border-rose-100 flex items-center justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setFormModal({ open: false, mode: 'create', productId: null })}
-                  className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                  className="px-4 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium"
                 >
                   Hủy (Esc)
                 </button>
                 <button
                   type="submit"
                   disabled={formSaving}
-                  className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-60 text-white text-xs font-semibold"
+                  className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-60 text-white text-xs font-semibold"
                 >
                   {formSaving ? 'Đang lưu...' : 'Lưu sản phẩm (Alt+S)'}
                 </button>
@@ -961,11 +964,11 @@ export default function AdminProductsPage() {
 
       {/* Modal Xem chi tiết 1 Product */}
       {detailModal.open && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-slate-200 overflow-hidden">
-            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-xl w-full shadow-2xl border border-rose-100 overflow-hidden">
+            <div className="px-5 py-4 border-b border-rose-100 flex items-center justify-between bg-gradient-to-r from-rose-50/70 to-emerald-50/70">
               <div className="flex items-center gap-2 font-bold text-slate-900">
-                <Eye className="w-5 h-5 text-sky-600" />
+                <Eye className="w-5 h-5 text-emerald-600" />
                 <span>Chi tiết Sản phẩm #{detailModal.product?.ProductID}</span>
               </div>
               <button
@@ -995,7 +998,7 @@ export default function AdminProductsPage() {
                     <div className="text-base font-bold text-slate-900">
                       {detailModal.product.ProductName}
                     </div>
-                    <span className="inline-block px-2 py-0.5 rounded bg-sky-50 text-sky-700 font-medium">
+                    <span className="inline-block px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium">
                       {detailModal.product.ProductType}
                     </span>
                     <div className="text-sm font-bold text-emerald-700">
@@ -1005,7 +1008,7 @@ export default function AdminProductsPage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2.5 bg-slate-50 border border-slate-200 rounded-xl p-3">
+                <div className="grid grid-cols-2 gap-2.5 bg-rose-50/40 border border-rose-100 rounded-xl p-3">
                   <div>
                     <span className="text-slate-500">ProductID:</span>{' '}
                     <strong className="font-mono">{detailModal.product.ProductID}</strong>
@@ -1050,8 +1053,8 @@ export default function AdminProductsPage() {
 
       {/* Modal Xác nhận Xóa / Sao chép */}
       {confirmModal.open && (
-        <div className="fixed inset-0 z-50 bg-slate-950/60 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 p-5 space-y-4">
+        <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-rose-100 p-5 space-y-4">
             <h3 className="font-bold text-slate-900 text-base">{confirmModal.title}</h3>
             <p className="text-xs text-slate-600 leading-relaxed">{confirmModal.message}</p>
             <div className="flex items-center justify-end gap-2">
@@ -1061,7 +1064,7 @@ export default function AdminProductsPage() {
                 onClick={() =>
                   setConfirmModal((prev) => ({ ...prev, open: false, onConfirm: null }))
                 }
-                className="px-4 py-2 rounded-lg border border-slate-300 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                className="px-4 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium"
               >
                 Hủy (Esc)
               </button>
@@ -1071,8 +1074,8 @@ export default function AdminProductsPage() {
                 onClick={handleConfirmAction}
                 className={`px-4 py-2 rounded-lg text-white text-xs font-semibold disabled:opacity-60 ${
                   confirmModal.danger
-                    ? 'bg-rose-600 hover:bg-rose-500'
-                    : 'bg-emerald-600 hover:bg-emerald-500'
+                    ? 'bg-rose-600 hover:bg-rose-700'
+                    : 'bg-amber-500 hover:bg-amber-600'
                 }`}
               >
                 {confirmLoading ? 'Đang xử lý...' : confirmModal.confirmLabel}

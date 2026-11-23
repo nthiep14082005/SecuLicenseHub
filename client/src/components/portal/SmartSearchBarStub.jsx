@@ -13,7 +13,7 @@ export default function SmartSearchBarStub({ value, onChange }) {
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Tìm bản quyền không dấu / sai chính tả (Meilisearch)..."
-        className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-900 border border-slate-700 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-sky-500"
+        className="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-50 border border-emerald-200 text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:border-emerald-500"
       />
     </div>
   );

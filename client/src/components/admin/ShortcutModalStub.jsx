@@ -21,11 +21,11 @@ export default function ShortcutModalStub({ open, onClose }) {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/60 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+    <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-[2px] flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-rose-100 overflow-hidden">
+        <div className="px-5 py-4 border-b border-rose-100 flex items-center justify-between bg-gradient-to-r from-rose-50/70 to-emerald-50/70">
           <div className="flex items-center gap-2 font-bold text-slate-900">
-            <Keyboard className="w-5 h-5 text-sky-600" />
+            <Keyboard className="w-5 h-5 text-emerald-600" />
             <span>Bảng Phím tắt CRUD Product (Alt + H / Esc)</span>
           </div>
           <button type="button" onClick={onClose} className="p-1 text-slate-500 hover:text-slate-900">
@@ -38,16 +38,16 @@ export default function ShortcutModalStub({ open, onClose }) {
             {SHORTCUTS.map(([combo, desc]) => (
               <div
                 key={combo}
-                className="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between gap-2"
+                className="p-2.5 rounded-lg bg-rose-50/40 border border-rose-100 flex items-center justify-between gap-2"
               >
-                <kbd className="px-2 py-0.5 rounded bg-slate-900 text-white text-xs font-mono shrink-0">
+                <kbd className="px-2 py-0.5 rounded bg-emerald-700 text-white text-xs font-mono shrink-0">
                   {combo}
                 </kbd>
                 <span className="text-slate-700 text-xs text-right">{desc}</span>
               </div>
             ))}
           </div>
-          <p className="text-[11px] text-slate-500 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+          <p className="text-[11px] text-slate-600 bg-amber-50/70 border border-amber-200 rounded-lg px-3 py-2">
             Lưu ý: Khi con trỏ đang nhập liệu trong ô <code>input</code>, <code>textarea</code> hoặc{' '}
             <code>select</code>, các phím tắt điều hướng được tạm bỏ qua; chỉ giữ{' '}
             <strong>Alt + S</strong> và <strong>Esc</strong> để tránh xung đột.
