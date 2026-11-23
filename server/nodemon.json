@@ -1,0 +1,12 @@
+{
+  "watch": ["src", "../.env"],
+  "ext": "js,json,env",
+  "ignore": [
+    "src/modules/auth/twofa-preferences.json",
+    "uploads/*",
+    "uploads/**/*",
+    "node_modules/**"
+  ],
+  "delay": "300",
+  "exec": "node src/index.js"
+}

@@ -54,7 +54,10 @@ exports.login = async (req, res, next) => {
 
     res.cookie(env.auth.cookieName, result.token, getCookieOptions());
 
-    const data = { user: result.user };
+    const data = {
+      user: result.user,
+      accessToken: result.token
+    };
     if (!env.isProduction) {
       data.token = result.token;
     }
@@ -249,12 +252,16 @@ exports.verifyLogin2fa = async (req, res, next) => {
     const { token, user } = await authService.verifyLogin2fa({
       challengeToken: req.body?.challengeToken,
       code: req.body?.code,
+      method: req.body?.method,
       req
     });
 
     res.cookie(env.auth.cookieName, token, getCookieOptions());
 
-    const data = { user };
+    const data = {
+      user,
+      accessToken: token
+    };
     if (!env.isProduction) {
       data.token = token;
     }
@@ -262,6 +269,28 @@ exports.verifyLogin2fa = async (req, res, next) => {
     return sendSuccess(res, {
       statusCode: 200,
       message: 'Xác thực 2 lớp và đăng nhập thành công',
+      data
+    });
+  } catch (err) {
+    return next(err);
+  }
+};
+
+exports.sendFallbackLogin2fa = async (req, res, next) => {
+  try {
+    const data = await authService.sendFallbackLogin2fa({
+      challengeToken: req.body?.challengeToken,
+      method: req.body?.method,
+      target: req.body?.target,
+      req
+    });
+
+    return sendSuccess(res, {
+      statusCode: 200,
+      message:
+        data.deliveryMode === 'smtp' || data.deliveryMode === 'telegram'
+          ? `Đã gửi mã xác minh 6 số tới ${data.maskedTarget} (hiệu lực 5 phút)`
+          : data.fallbackReason || 'Đã tạo mã OTP test',
       data
     });
   } catch (err) {
@@ -299,7 +328,10 @@ exports.updateEmail = async (req, res, next) => {
 
     res.cookie(env.auth.cookieName, token, getCookieOptions());
 
-    const data = { user };
+    const data = {
+      user,
+      accessToken: token
+    };
     if (!env.isProduction) {
       data.token = token;
     }

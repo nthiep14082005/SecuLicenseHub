@@ -4,16 +4,19 @@ const { sendError } = require('../utils/response.util');
 const { writeAuditLog } = require('../utils/audit.util');
 
 /**
- * Trích xuất JWT ưu tiên từ HttpOnly Cookie; fallback sang Authorization: Bearer cho Swagger UI.
+ * Trích xuất JWT ưu tiên từ header Authorization: Bearer (cô lập phiên theo từng tab),
+ * chỉ fallback sang HttpOnly Cookie khi request không gửi Bearer token.
  */
 function extractToken(req) {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const bearerToken = authHeader.slice(7).trim();
+    if (bearerToken) return bearerToken;
+  }
+
   const cookieToken = req.cookies?.[env.auth.cookieName];
   if (cookieToken) return cookieToken;
 
-  const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    return authHeader.slice(7).trim();
-  }
   return null;
 }
 

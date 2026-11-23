@@ -27,7 +27,10 @@ function getUserTwoFaPrefs(userId, dbIs2faEnabled = false, dbHasTotpSecret = fal
   const allPrefs = readAllPrefs();
   const saved = allPrefs[key] || {};
 
-  const totp = Boolean(saved.totp) || Boolean(dbIs2faEnabled && dbHasTotpSecret);
+  const totp =
+    saved.totp !== undefined
+      ? Boolean(saved.totp)
+      : Boolean(dbIs2faEnabled && dbHasTotpSecret);
   const gmail = Boolean(saved.gmail);
   const telegram = Boolean(saved.telegram);
 

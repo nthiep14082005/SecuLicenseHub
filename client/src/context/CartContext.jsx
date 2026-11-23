@@ -1,28 +1,59 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useAuth } from './AuthContext';
 
-const CART_STORAGE_KEY = 'seculicense_cart';
+const CART_KEY_PREFIX = 'seculicense_cart_';
 const CartContext = createContext(null);
 
+export function getCartStorageKey(user) {
+  return `${CART_KEY_PREFIX}${user?.userId || user?.id || 'guest'}`;
+}
+
+export function readCartForKey(storageKey) {
+  try {
+    const saved = sessionStorage.getItem(storageKey);
+    const parsed = saved ? JSON.parse(saved) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function writeCartForKey(storageKey, items) {
+  try {
+    sessionStorage.setItem(storageKey, JSON.stringify(items));
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
 export function CartProvider({ children }) {
-  const [items, setItems] = useState(() => {
-    try {
-      const saved = localStorage.getItem(CART_STORAGE_KEY);
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const { user } = useAuth();
+  const cartKey = getCartStorageKey(user);
+
+  const [cartState, setCartState] = useState(() => ({
+    key: cartKey,
+    items: readCartForKey(cartKey)
+  }));
 
   useEffect(() => {
-    try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(items));
-    } catch {
-      // Ignore storage quota errors
-    }
-  }, [items]);
+    setCartState((prev) =>
+      prev.key === cartKey ? prev : { key: cartKey, items: readCartForKey(cartKey) }
+    );
+  }, [cartKey]);
+
+  const items = cartState.key === cartKey ? cartState.items : readCartForKey(cartKey);
+
+  const updateItemsForCurrentKey = (updater) => {
+    setCartState((prev) => {
+      const baseItems = prev.key === cartKey ? prev.items : readCartForKey(cartKey);
+      const nextItems = updater(baseItems);
+      writeCartForKey(cartKey, nextItems);
+      return { key: cartKey, items: nextItems };
+    });
+  };
 
   const addItem = (product, quantity = 1) => {
-    setItems((prev) => {
+    updateItemsForCurrentKey((prev) => {
       const existing = prev.find((it) => it.ProductID === product.ProductID);
       if (existing) {
         return prev.map((it) =>
@@ -47,19 +78,19 @@ export function CartProvider({ children }) {
 
   const updateQuantity = (productId, quantity) => {
     if (quantity <= 0) {
-      setItems((prev) => prev.filter((it) => it.ProductID !== productId));
+      updateItemsForCurrentKey((prev) => prev.filter((it) => it.ProductID !== productId));
       return;
     }
-    setItems((prev) =>
+    updateItemsForCurrentKey((prev) =>
       prev.map((it) => (it.ProductID === productId ? { ...it, Quantity: quantity } : it))
     );
   };
 
   const removeItem = (productId) => {
-    setItems((prev) => prev.filter((it) => it.ProductID !== productId));
+    updateItemsForCurrentKey((prev) => prev.filter((it) => it.ProductID !== productId));
   };
 
-  const clearCart = () => setItems([]);
+  const clearCart = () => updateItemsForCurrentKey(() => []);
 
   const totalAmount = items.reduce((sum, item) => sum + Number(item.Price) * Number(item.Quantity), 0);
   const totalCount = items.reduce((sum, item) => sum + Number(item.Quantity), 0);

@@ -65,14 +65,14 @@ export default function LoginPage() {
           type: 'locked',
           message:
             payload?.message ||
-            'Tài khoản đang bị tạm khóa 15 phút do nhập sai mật khẩu liên tiếp.'
+            'Tài khoản đang bị tạm khóa 10 giây do nhập sai mật khẩu liên tiếp.'
         });
       } else if (status === 429) {
         setAlert({
           type: 'locked',
           message:
             payload?.message ||
-            'Quá nhiều yêu cầu đăng nhập từ IP này. Vui lòng đợi ít phút trước khi thử lại.'
+            'Quá nhiều lần thử đăng nhập. Vui lòng đợi 10 giây trước khi thử lại.'
         });
       } else {
         setAlert({

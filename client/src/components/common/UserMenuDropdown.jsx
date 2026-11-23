@@ -30,7 +30,7 @@ const PREFS_KEY_PREFIX = 'seculicense_user_prefs_';
 function loadUserPrefs(userId) {
   if (!userId) return { phone: '', address: '', telegram2faEnabled: false, email2faEnabled: false };
   try {
-    const raw = localStorage.getItem(`${PREFS_KEY_PREFIX}${userId}`);
+    const raw = sessionStorage.getItem(`${PREFS_KEY_PREFIX}${userId}`);
     if (!raw) return { phone: '', address: '', telegram2faEnabled: false, email2faEnabled: false };
     const parsed = JSON.parse(raw);
     return {
@@ -49,9 +49,9 @@ function loadUserPrefs(userId) {
 function saveUserPrefs(userId, nextPrefs) {
   if (!userId) return;
   try {
-    localStorage.setItem(`${PREFS_KEY_PREFIX}${userId}`, JSON.stringify(nextPrefs));
+    sessionStorage.setItem(`${PREFS_KEY_PREFIX}${userId}`, JSON.stringify(nextPrefs));
   } catch {
-    // Bỏ qua lỗi quota localStorage
+    // Bỏ qua lỗi quota sessionStorage
   }
 }
 
@@ -71,6 +71,7 @@ function getInitials(fullName, email) {
 export default function UserMenuDropdown({ variant = 'light' }) {
   const {
     user,
+    refreshUser,
     setup2fa,
     verify2fa,
     updateProfile,
@@ -270,8 +271,29 @@ export default function UserMenuDropdown({ variant = 'light' }) {
     setTwoFaFeedback(null);
     try {
       const data = await setup2fa();
-      setTotpQrData(data);
+      const qrSrc = data?.qrCodeDataUrl || data?.qrDataUrl;
+      if (data?.alreadyEnabled) {
+        setTotpQrData(null);
+        setTwoFaFeedback({
+          type: 'info',
+          message: 'Google Authenticator đã được bật trên tài khoản này.'
+        });
+        await refreshUser();
+      } else if (!qrSrc || !data?.secret) {
+        setTotpQrData(null);
+        setTwoFaFeedback({
+          type: 'error',
+          message: 'Không nhận được mã QR Google Authenticator từ máy chủ. Vui lòng thử lại.'
+        });
+      } else {
+        setTotpQrData({
+          ...data,
+          qrDataUrl: qrSrc,
+          qrCodeDataUrl: qrSrc
+        });
+      }
     } catch (err) {
+      setTotpQrData(null);
       setTwoFaFeedback({
         type: 'error',
         message: err.response?.data?.message || 'Không thể khởi tạo mã QR Google Authenticator.'
@@ -293,6 +315,11 @@ export default function UserMenuDropdown({ variant = 'light' }) {
     setTgChatId(user.telegramChatId || '');
     setTwoFaModalOpen(true);
 
+    if (methods.totp) {
+      setTotpQrData(null);
+      return;
+    }
+
     if (twoFaMethod === 'totp' && !totpQrData) {
       await initTotpQr();
     }
@@ -301,7 +328,7 @@ export default function UserMenuDropdown({ variant = 'light' }) {
   const handleSwitchTwoFaMethod = async (method) => {
     setTwoFaMethod(method);
     setTwoFaFeedback(null);
-    if (method === 'totp' && !totpQrData) {
+    if (method === 'totp' && !methods.totp && !totpQrData) {
       await initTotpQr();
     }
   };
@@ -632,7 +659,7 @@ export default function UserMenuDropdown({ variant = 'light' }) {
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Số điện thoại <span className="text-slate-500 font-normal">(Lưu localStorage)</span>
+                  Số điện thoại <span className="text-slate-500 font-normal">(Lưu theo phiên tab)</span>
                 </label>
                 <input
                   type="tel"
@@ -645,7 +672,7 @@ export default function UserMenuDropdown({ variant = 'light' }) {
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Địa chỉ <span className="text-slate-500 font-normal">(Lưu localStorage)</span>
+                  Địa chỉ <span className="text-slate-500 font-normal">(Lưu theo phiên tab)</span>
                 </label>
                 <textarea
                   rows={2}
@@ -790,7 +817,7 @@ export default function UserMenuDropdown({ variant = 'light' }) {
 
               {/* Phương thức 1: Google Authenticator */}
               {twoFaMethod === 'totp' && (
-                <form onSubmit={handleVerifyTotp} className="space-y-3">
+                <div className="space-y-3">
                   {methods.totp && (
                     <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200 flex flex-wrap items-center justify-between gap-2">
                       <div className="text-[11px] text-slate-700">
@@ -814,71 +841,95 @@ export default function UserMenuDropdown({ variant = 'light' }) {
                     </div>
                   )}
 
-                  {twoFaLoading && !totpQrData ? (
-                    <div className="py-6 text-center text-slate-500">
-                      Đang tạo mã QR Google Authenticator...
-                    </div>
-                  ) : totpQrData ? (
-                    <div className="text-center space-y-2">
-                      <p className="text-slate-600">
-                        Quét mã QR bằng <strong>Google Authenticator</strong> hoặc nhập khóa bí mật:
-                      </p>
-                      <div className="flex justify-center">
-                        <img
-                          src={totpQrData.qrDataUrl}
-                          alt="QR 2FA TOTP"
-                          className="w-40 h-40 border border-emerald-200 rounded-xl p-1.5 bg-white"
-                        />
+                  {methods.totp ? (
+                    <div className="space-y-3">
+                      <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 text-emerald-900 leading-relaxed">
+                        Google Authenticator đang bảo vệ tài khoản của bạn. Khóa bí mật hiện tại được
+                        giữ nguyên để tránh làm mất đồng bộ với ứng dụng.
                       </div>
-                      <div className="p-2 rounded-lg bg-slate-100 font-mono text-[11px] break-all">
-                        Secret: {totpQrData.secret}
+                      <div className="flex justify-end">
+                        <button
+                          type="button"
+                          onClick={() => setTwoFaModalOpen(false)}
+                          className="px-3.5 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium"
+                        >
+                          Đóng
+                        </button>
                       </div>
                     </div>
                   ) : (
-                    <div className="text-center py-3">
-                      <button
-                        type="button"
-                        disabled={twoFaLoading}
-                        onClick={initTotpQr}
-                        className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold disabled:opacity-60"
-                      >
-                        Tạo mã QR Google Authenticator
-                      </button>
-                    </div>
-                  )}
+                    <form onSubmit={handleVerifyTotp} className="space-y-3">
+                      {twoFaLoading && !totpQrData ? (
+                        <div className="py-6 text-center text-slate-500">
+                          Đang tạo mã QR Google Authenticator...
+                        </div>
+                      ) : totpQrData && (totpQrData.qrCodeDataUrl || totpQrData.qrDataUrl) ? (
+                        <div className="text-center space-y-2">
+                          <p className="text-slate-600">
+                            Quét mã QR bằng <strong>Google Authenticator</strong> hoặc nhập khóa bí mật:
+                          </p>
+                          <div className="flex justify-center">
+                            <img
+                              src={totpQrData.qrCodeDataUrl || totpQrData.qrDataUrl}
+                              alt="QR 2FA TOTP"
+                              className="w-40 h-40 border border-emerald-200 rounded-xl p-1.5 bg-white"
+                            />
+                          </div>
+                          <div className="p-2 rounded-lg bg-slate-100 font-mono text-[11px] break-all">
+                            Secret: {totpQrData.secret}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-center py-3">
+                          <button
+                            type="button"
+                            disabled={twoFaLoading}
+                            onClick={initTotpQr}
+                            className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold disabled:opacity-60"
+                          >
+                            Tạo mã QR Google Authenticator
+                          </button>
+                        </div>
+                      )}
 
-                  <div>
-                    <label className="block font-semibold text-slate-700 mb-1">
-                      Nhập mã 6 chữ số từ ứng dụng Authenticator
-                    </label>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      required
-                      value={totpCode}
-                      onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      placeholder="000000"
-                      className="w-full px-3 py-2 rounded-lg border border-slate-300 text-center text-base font-mono tracking-[0.35em] focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                    />
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setTwoFaModalOpen(false)}
-                      className="px-3.5 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium"
-                    >
-                      Đóng
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={twoFaLoading || !totpQrData}
-                      className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold disabled:opacity-60"
-                    >
-                      Kích hoạt Authenticator
-                    </button>
-                  </div>
-                </form>
+                      <div>
+                        <label className="block font-semibold text-slate-700 mb-1">
+                          Nhập mã 6 chữ số từ ứng dụng Authenticator
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={6}
+                          required
+                          value={totpCode}
+                          onChange={(e) => setTotpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          placeholder="000000"
+                          className="w-full px-3 py-2 rounded-lg border border-slate-300 text-center text-base font-mono tracking-[0.35em] focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                      </div>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setTwoFaModalOpen(false)}
+                          className="px-3.5 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium"
+                        >
+                          Đóng
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={
+                            twoFaLoading ||
+                            !totpQrData ||
+                            !(totpQrData.qrCodeDataUrl || totpQrData.qrDataUrl)
+                          }
+                          className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold disabled:opacity-60"
+                        >
+                          Kích hoạt Authenticator
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
               )}
 
               {/* Phương thức 2: OTP qua Telegram Bot */}

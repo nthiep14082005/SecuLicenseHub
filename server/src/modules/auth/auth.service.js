@@ -20,10 +20,25 @@ const BCRYPT_SALT_ROUNDS = 10;
 const MAX_FAILED_LOGIN_ATTEMPTS = 10;
 const EMAIL_OTP_TTL_MS = 5 * 60 * 1000;
 const TELEGRAM_OTP_TTL_MS = 5 * 60 * 1000;
+const TOTP_SETUP_TTL_MS = 10 * 60 * 1000;
 
-// Lưu tạm mã OTP Email & Telegram 2FA theo userId (hết hạn sau 5 phút)
+// Cho phép lệch đồng hồ tối đa ±2 bước (±60 giây) giữa server và app Google Authenticator
+authenticator.options = { window: 2 };
+
+// Lưu tạm mã OTP / secret chờ xác nhận theo userId (tránh ghi đè secret đang hoạt động)
 const emailOtpStore = new Map();
 const telegramOtpStore = new Map();
+const pendingTotpStore = new Map();
+const fallbackChallengeStore = new Map();
+
+function computeFallback2faMethods(prefs, requiredMethod) {
+  if (requiredMethod !== 'totp' || !prefs) return [];
+  const registered = [prefs.gmail && 'gmail', prefs.telegram && 'telegram'].filter(Boolean);
+  if (registered.length > 0) {
+    return registered;
+  }
+  return ['gmail'];
+}
 
 function normalizeTelegramChatId(rawChatId) {
   const cleaned = String(rawChatId || '').trim();
@@ -85,28 +100,51 @@ function maskTelegramChatId(chatId) {
   return `${clean.slice(0, 2)}••••${clean.slice(-3)}`;
 }
 
-function formatUserSummary(row) {
-  const prefs = getUserTwoFaPrefs(
-    row.user_id,
-    Boolean(row.is_2fa_enabled),
-    Boolean(row.totp_secret)
+function resolveEffectiveTwoFaState(user) {
+  const userId = user.user_id;
+  const hasStoredTotpSecret = Boolean(user.totp_secret && String(user.totp_secret).trim() !== '');
+  let prefs = getUserTwoFaPrefs(userId, Boolean(user.is_2fa_enabled), hasStoredTotpSecret);
+
+  // Nếu JSON đang dính totp: true sai sự thật trong khi PostgreSQL không có totp_secret -> tự chuẩn hóa về false
+  if (prefs.totp === true && !hasStoredTotpSecret) {
+    prefs = updateUserTwoFaPrefs(userId, { totp: false });
+  }
+
+  const hasTotp = Boolean(prefs.totp === true && hasStoredTotpSecret);
+  const hasGmail = Boolean(prefs.gmail === true);
+  const hasTelegram = Boolean(
+    prefs.telegram === true && prefs.telegramChatId && String(prefs.telegramChatId).trim() !== ''
   );
-  const hasAny2FA = Boolean(prefs.totp || prefs.gmail || prefs.telegram);
+  const hasAny2FA = Boolean(hasTotp || hasGmail || hasTelegram);
+  const requiredMethod = hasTotp ? 'totp' : hasGmail ? 'gmail' : hasTelegram ? 'telegram' : null;
+
+  return {
+    prefs,
+    hasTotp,
+    hasGmail,
+    hasTelegram,
+    hasAny2FA,
+    requiredMethod
+  };
+}
+
+function formatUserSummary(row) {
+  const state = resolveEffectiveTwoFaState(row);
 
   return {
     userId: row.user_id,
     fullName: row.full_name,
     email: row.email,
     role: row.role,
-    is2faEnabled: Boolean(row.is_2fa_enabled || hasAny2FA),
-    hasAny2FA,
+    is2faEnabled: state.hasAny2FA,
+    hasAny2FA: state.hasAny2FA,
     twoFactorMethods: {
-      totp: prefs.totp,
-      gmail: prefs.gmail,
-      telegram: prefs.telegram
+      totp: state.hasTotp,
+      gmail: state.hasGmail,
+      telegram: state.hasTelegram
     },
-    gmailAddress: prefs.gmailAddress || '',
-    telegramChatId: prefs.telegramChatId || '',
+    gmailAddress: state.prefs.gmailAddress || '',
+    telegramChatId: state.prefs.telegramChatId || '',
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
   };
 }
@@ -192,9 +230,9 @@ async function login({ email, password, totpCode, req }) {
   const user = result.rows[0];
 
   if (user.locked_until && new Date(user.locked_until) > new Date()) {
-    const remainingMinutes = Math.max(
+    const remainingSeconds = Math.max(
       1,
-      Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 60000)
+      Math.ceil((new Date(user.locked_until).getTime() - Date.now()) / 1000)
     );
     await writeAuditLog({
       userId: user.user_id,
@@ -202,11 +240,11 @@ async function login({ email, password, totpCode, req }) {
       resource: cleanEmail,
       req,
       severity: 'WARN',
-      metadata: { remainingMinutes }
+      metadata: { remainingSeconds }
     });
     throw createHttpError(
       423,
-      `Tài khoản đang bị tạm khóa do nhập sai nhiều lần. Vui lòng thử lại sau ${remainingMinutes} phút.`
+      `Tài khoản đang bị tạm khóa do nhập sai nhiều lần. Vui lòng thử lại sau ${remainingSeconds} giây.`
     );
   }
 
@@ -271,12 +309,8 @@ async function login({ email, password, totpCode, req }) {
     [user.user_id]
   );
 
-  const prefs = getUserTwoFaPrefs(
-    user.user_id,
-    Boolean(user.is_2fa_enabled),
-    Boolean(user.totp_secret)
-  );
-  const requiredMethod = resolveRequired2faMethod(prefs);
+  const twoFaState = resolveEffectiveTwoFaState(user);
+  const { prefs, requiredMethod } = twoFaState;
 
   // Trường hợp B: Đã bật ít nhất 1 trong 3 cách 2FA -> KHÔNG cấp Session Cookie ngay
   if (requiredMethod) {
@@ -324,7 +358,9 @@ async function login({ email, password, totpCode, req }) {
       requires2fa: true,
       challengeToken,
       requiredMethod,
-      maskedTarget
+      maskedTarget,
+      destination: maskedTarget,
+      fallbackMethods: computeFallback2faMethods(prefs, requiredMethod)
     };
 
     if (otpMeta.deliveryMode) {
@@ -338,6 +374,12 @@ async function login({ email, password, totpCode, req }) {
     }
 
     return challengePayload;
+  }
+
+  // Nếu cả 3 phương thức đều false nhưng PostgreSQL còn lệch is_2fa_enabled = TRUE -> tự đồng bộ về FALSE
+  if (user.is_2fa_enabled) {
+    await query('UPDATE users SET is_2fa_enabled = FALSE WHERE user_id = $1', [user.user_id]);
+    user.is_2fa_enabled = false;
   }
 
   // Trường hợp A: Chưa bật cách 2FA nào -> đăng nhập thẳng & cấp Session Cookie
@@ -378,20 +420,44 @@ async function getProfile(userId) {
 }
 
 /**
- * Khởi tạo secret TOTP & mã QR Google Authenticator cho Admin.
+ * Khởi tạo secret TOTP & mã QR Google Authenticator (CHỈ lưu tạm pending, không ghi đè totp_secret đang bật).
  */
 async function setup2fa({ userId, req }) {
-  const result = await query('SELECT user_id, email FROM users WHERE user_id = $1', [userId]);
+  const result = await query(
+    'SELECT user_id, email, is_2fa_enabled, totp_secret FROM users WHERE user_id = $1',
+    [userId]
+  );
   if (result.rows.length === 0) {
     throw createHttpError(404, 'Không tìm thấy tài khoản');
   }
 
   const user = result.rows[0];
+  const prefs = getUserTwoFaPrefs(
+    userId,
+    Boolean(user.is_2fa_enabled),
+    Boolean(user.totp_secret)
+  );
+
+  // Chỉ chặn khi Google Authenticator thực sự đã bật (prefs.totp === true) và đã có secret trong DB.
+  // Tuyệt đối không chặn theo user.is_2fa_enabled (vì user có thể đã bật Gmail/Telegram trước đó).
+  if (prefs.totp === true && Boolean(user.totp_secret)) {
+    return {
+      alreadyEnabled: true,
+      qrDataUrl: null,
+      qrCodeDataUrl: null,
+      secret: null,
+      otpauthUrl: null
+    };
+  }
+
   const secret = authenticator.generateSecret();
   const otpauthUrl = authenticator.keyuri(user.email, 'SecuLicense Hub', secret);
   const qrDataUrl = await qrcode.toDataURL(otpauthUrl);
 
-  await query('UPDATE users SET totp_secret = $1 WHERE user_id = $2', [secret, userId]);
+  pendingTotpStore.set(userId, {
+    secret,
+    expiresAt: Date.now() + TOTP_SETUP_TTL_MS
+  });
 
   await writeAuditLog({
     userId,
@@ -402,26 +468,26 @@ async function setup2fa({ userId, req }) {
   });
 
   return {
+    alreadyEnabled: false,
     qrDataUrl,
+    qrCodeDataUrl: qrDataUrl,
     secret,
     otpauthUrl
   };
 }
 
 /**
- * Xác nhận mã TOTP 6 số và kích hoạt 2FA cho Admin.
+ * Xác nhận mã TOTP 6 số và lưu totp_secret vào PostgreSQL khi kích hoạt Google Authenticator.
  */
 async function verify2fa({ userId, token, req }) {
-  const cleanToken = typeof token === 'string' || typeof token === 'number'
-    ? String(token).trim()
-    : '';
+  const cleanToken = String(token || '').replace(/\D/g, '').trim();
 
   if (!/^\d{6}$/.test(cleanToken)) {
     throw createHttpError(400, 'Mã xác thực 2FA phải gồm đúng 6 chữ số');
   }
 
   const result = await query(
-    'SELECT user_id, email, totp_secret FROM users WHERE user_id = $1',
+    'SELECT user_id, email, is_2fa_enabled, totp_secret FROM users WHERE user_id = $1',
     [userId]
   );
   if (result.rows.length === 0) {
@@ -429,12 +495,30 @@ async function verify2fa({ userId, token, req }) {
   }
 
   const user = result.rows[0];
-  if (!user.totp_secret) {
-    throw createHttpError(400, 'Vui lòng khởi tạo 2FA trước khi xác nhận');
+  const pending = pendingTotpStore.get(userId);
+  if (pending && Date.now() > pending.expiresAt) {
+    pendingTotpStore.delete(userId);
   }
 
-  const isValid = authenticator.verify({ token: cleanToken, secret: user.totp_secret });
+  const secretToVerify =
+    pending && Date.now() <= pending.expiresAt
+      ? pending.secret
+      : typeof user.totp_secret === 'string'
+      ? user.totp_secret.trim()
+      : '';
+
+  if (!secretToVerify) {
+    throw createHttpError(400, 'Vui lòng tạo mã QR Google Authenticator trước khi xác nhận');
+  }
+
+  const isValid = authenticator.verify({ token: cleanToken, secret: secretToVerify });
   if (!isValid) {
+    console.warn('[Auth][2FA Setup Verify Failed]', {
+      userId,
+      hasSecret: true,
+      secretLength: secretToVerify.length,
+      serverTime: new Date().toISOString()
+    });
     await writeAuditLog({
       userId,
       action: '2FA_VERIFY_FAILED',
@@ -445,7 +529,11 @@ async function verify2fa({ userId, token, req }) {
     throw createHttpError(400, 'Mã xác thực TOTP không hợp lệ hoặc đã hết hạn');
   }
 
-  await query('UPDATE users SET is_2fa_enabled = TRUE WHERE user_id = $1', [userId]);
+  await query('UPDATE users SET totp_secret = $1, is_2fa_enabled = TRUE WHERE user_id = $2', [
+    secretToVerify,
+    userId
+  ]);
+  pendingTotpStore.delete(userId);
   const updatedPrefs = updateUserTwoFaPrefs(userId, { totp: true });
 
   await writeAuditLog({
@@ -876,9 +964,10 @@ async function verifyTelegram2faOtp({ userId, token, chatId, req }) {
 }
 
 /**
- * Xác thực challengeToken (bước 2 của Login 2FA) cho 1 trong 3 phương thức: totp | gmail | telegram.
+ * Xác thực challengeToken (bước 2 của Login 2FA) cho totp | gmail | telegram,
+ * hoặc phương thức thay thế (gmail | telegram) đã được cấp phép qua fallback-2fa/send.
  */
-async function verifyLogin2fa({ challengeToken, code, req }) {
+async function verifyLogin2fa({ challengeToken, code, method, req }) {
   if (!challengeToken || typeof challengeToken !== 'string') {
     throw createHttpError(400, 'Thiếu challengeToken xác thực 2FA');
   }
@@ -894,7 +983,7 @@ async function verifyLogin2fa({ challengeToken, code, req }) {
     throw createHttpError(401, 'Token xác thực 2FA không hợp lệ');
   }
 
-  const cleanCode = typeof code === 'string' || typeof code === 'number' ? String(code).trim() : '';
+  const cleanCode = String(code || '').replace(/\D/g, '').trim();
   if (!/^\d{6}$/.test(cleanCode)) {
     throw createHttpError(400, 'Mã xác thực 2FA phải gồm đúng 6 chữ số');
   }
@@ -909,24 +998,84 @@ async function verifyLogin2fa({ challengeToken, code, req }) {
     throw createHttpError(404, 'Không tìm thấy tài khoản');
   }
   const user = userRes.rows[0];
-  const method = decoded.requiredMethod;
 
-  if (method === 'totp') {
-    const valid =
-      Boolean(user.totp_secret) &&
-      authenticator.verify({ token: cleanCode, secret: user.totp_secret });
-    if (!valid) {
+  const cleanOverrideMethod = typeof method === 'string' ? method.trim().toLowerCase() : '';
+  let effectiveMethod = decoded.requiredMethod;
+  let isFallbackVerification = false;
+
+  if (cleanOverrideMethod && cleanOverrideMethod !== decoded.requiredMethod) {
+    if (
+      decoded.requiredMethod !== 'totp' ||
+      !['gmail', 'telegram'].includes(cleanOverrideMethod)
+    ) {
+      throw createHttpError(400, 'Phương thức xác minh thay thế không hợp lệ cho phiên này');
+    }
+
+    const fallbackEntry = fallbackChallengeStore.get(challengeToken);
+    if (
+      !fallbackEntry ||
+      Date.now() > fallbackEntry.expiresAt ||
+      fallbackEntry.userId !== user.user_id ||
+      fallbackEntry.method !== cleanOverrideMethod
+    ) {
+      if (fallbackEntry && Date.now() > fallbackEntry.expiresAt) {
+        fallbackChallengeStore.delete(challengeToken);
+      }
+      throw createHttpError(
+        401,
+        'Phiên xác minh thay thế chưa được kích hoạt hoặc đã hết hạn. Vui lòng gửi lại mã xác minh.'
+      );
+    }
+
+    effectiveMethod = cleanOverrideMethod;
+    isFallbackVerification = true;
+  }
+
+  if (effectiveMethod === 'totp') {
+    const storedSecret = typeof user.totp_secret === 'string' ? user.totp_secret.trim() : '';
+    if (!storedSecret) {
+      console.warn('[Auth][Login 2FA TOTP Missing Secret]', {
+        userId: user.user_id,
+        hasSecret: false,
+        secretLength: 0,
+        serverTime: new Date().toISOString()
+      });
       await writeAuditLog({
         userId: user.user_id,
         action: 'LOGIN_2FA_FAILED',
         resource: user.email,
         req,
         severity: 'HIGH',
-        metadata: { method: 'totp' }
+        metadata: { method: 'totp', reason: 'MISSING_TOTP_SECRET' }
       });
-      throw createHttpError(401, 'Mã Google Authenticator 6 số không chính xác hoặc đã hết hạn');
+      throw createHttpError(
+        401,
+        'Tài khoản chưa có khóa bí mật Google Authenticator hoặc khóa đã bị mất. Vui lòng tắt và kích hoạt lại Google Authenticator.'
+      );
     }
-  } else if (method === 'gmail') {
+
+    const valid = authenticator.verify({ token: cleanCode, secret: storedSecret });
+    if (!valid) {
+      console.warn('[Auth][Login 2FA TOTP Failed]', {
+        userId: user.user_id,
+        hasSecret: true,
+        secretLength: storedSecret.length,
+        serverTime: new Date().toISOString()
+      });
+      await writeAuditLog({
+        userId: user.user_id,
+        action: 'LOGIN_2FA_FAILED',
+        resource: user.email,
+        req,
+        severity: 'HIGH',
+        metadata: { method: 'totp', reason: 'INVALID_OR_EXPIRED_CODE' }
+      });
+      throw createHttpError(
+        401,
+        'Mã Google Authenticator 6 số không chính xác hoặc đã hết hạn (hãy kiểm tra đồng bộ giờ trên điện thoại và máy tính)'
+      );
+    }
+  } else if (effectiveMethod === 'gmail') {
     const entry = emailOtpStore.get(user.user_id);
     if (!entry || Date.now() > entry.expiresAt) {
       emailOtpStore.delete(user.user_id);
@@ -939,16 +1088,16 @@ async function verifyLogin2fa({ challengeToken, code, req }) {
         resource: user.email,
         req,
         severity: 'HIGH',
-        metadata: { method: 'gmail' }
+        metadata: { method: 'gmail', isFallback: isFallbackVerification }
       });
       throw createHttpError(401, 'Mã OTP Gmail không chính xác');
     }
     emailOtpStore.delete(user.user_id);
-  } else if (method === 'telegram') {
+  } else if (effectiveMethod === 'telegram') {
     const entry = telegramOtpStore.get(user.user_id);
     if (!entry || Date.now() > entry.expiresAt) {
       telegramOtpStore.delete(user.user_id);
-      throw createHttpError(401, 'Mã OTP Telegram đã hết hạn. Vui lòng bấm Gửi lại mã Telegram.');
+      throw createHttpError(401, 'Mã OTP Telegram đã hết hạn. Vui lòng bấm Gửi lại mã.');
     }
     if (entry.otp !== cleanCode) {
       await writeAuditLog({
@@ -957,7 +1106,7 @@ async function verifyLogin2fa({ challengeToken, code, req }) {
         resource: entry.chatId,
         req,
         severity: 'HIGH',
-        metadata: { method: 'telegram' }
+        metadata: { method: 'telegram', isFallback: isFallbackVerification }
       });
       throw createHttpError(401, 'Mã OTP Telegram không chính xác');
     }
@@ -966,21 +1115,153 @@ async function verifyLogin2fa({ challengeToken, code, req }) {
     throw createHttpError(400, 'Phương thức 2FA không được hỗ trợ');
   }
 
+  if (isFallbackVerification) {
+    fallbackChallengeStore.delete(challengeToken);
+  }
+
   const token = signSessionJwt(user);
 
   await writeAuditLog({
     userId: user.user_id,
-    action: 'LOGIN_2FA_SUCCESS',
+    action: isFallbackVerification ? 'LOGIN_2FA_FALLBACK_SUCCESS' : 'LOGIN_2FA_SUCCESS',
     resource: user.email,
     req,
     severity: 'INFO',
-    metadata: { method, role: user.role }
+    metadata: isFallbackVerification
+      ? {
+          originalMethod: decoded.requiredMethod,
+          fallbackMethod: effectiveMethod,
+          role: user.role
+        }
+      : { method: effectiveMethod, role: user.role }
   });
 
   return {
     token,
     user: formatUserSummary(user)
   };
+}
+
+/**
+ * Gửi mã OTP xác minh thay thế (Gmail hoặc Telegram) khi user mất app Google Authenticator ở /verify-2fa.
+ */
+async function sendFallbackLogin2fa({ challengeToken, method, target, req }) {
+  if (!challengeToken || typeof challengeToken !== 'string') {
+    throw createHttpError(400, 'Thiếu challengeToken xác thực 2FA');
+  }
+
+  let decoded;
+  try {
+    decoded = jwt.verify(challengeToken, env.auth.jwtSecret);
+  } catch {
+    throw createHttpError(401, 'Phiên xác thực 2FA đã hết hạn. Vui lòng đăng nhập lại.');
+  }
+
+  if (decoded?.purpose !== '2fa_challenge' || !decoded.userId || decoded.requiredMethod !== 'totp') {
+    throw createHttpError(
+      400,
+      'Xác minh thay thế chỉ áp dụng cho phiên đăng nhập yêu cầu Google Authenticator'
+    );
+  }
+
+  const cleanMethod = String(method || '').trim().toLowerCase();
+  if (!['gmail', 'telegram'].includes(cleanMethod)) {
+    throw createHttpError(400, 'Phương thức thay thế không hợp lệ (chỉ hỗ trợ gmail hoặc telegram)');
+  }
+
+  const userRes = await query(
+    'SELECT user_id, email, is_2fa_enabled, totp_secret FROM users WHERE user_id = $1',
+    [decoded.userId]
+  );
+  if (userRes.rows.length === 0) {
+    throw createHttpError(404, 'Không tìm thấy tài khoản');
+  }
+
+  const user = userRes.rows[0];
+  const prefs = getUserTwoFaPrefs(
+    user.user_id,
+    Boolean(user.is_2fa_enabled),
+    Boolean(user.totp_secret)
+  );
+  const allowedFallbackMethods = computeFallback2faMethods(prefs, 'totp');
+
+  if (!allowedFallbackMethods.includes(cleanMethod)) {
+    throw createHttpError(400, 'Phương thức xác minh thay thế này chưa được bật cho tài khoản');
+  }
+
+  let expectedTarget = '';
+  let otpMeta = null;
+  let maskedTarget = '';
+
+  if (cleanMethod === 'gmail') {
+    expectedTarget = (prefs.gmail && prefs.gmailAddress ? prefs.gmailAddress : user.email)
+      .trim()
+      .toLowerCase();
+    const inputTarget = String(target || '').trim().toLowerCase();
+
+    if (!inputTarget || inputTarget !== expectedTarget) {
+      await writeAuditLog({
+        userId: user.user_id,
+        action: 'LOGIN_2FA_FALLBACK_MISMATCH',
+        resource: user.email,
+        req,
+        severity: 'WARN',
+        metadata: { method: 'gmail' }
+      });
+      throw createHttpError(400, 'Thông tin không khớp với phương thức 2FA đã đăng ký');
+    }
+
+    otpMeta = await sendEmail2faOtp({
+      userId: user.user_id,
+      targetEmail: expectedTarget,
+      req
+    });
+    maskedTarget = maskEmailAddress(expectedTarget);
+  } else {
+    expectedTarget = String(prefs.telegramChatId || '').trim();
+    const inputTarget = String(target || '').trim();
+
+    if (!expectedTarget || !inputTarget || inputTarget !== expectedTarget) {
+      await writeAuditLog({
+        userId: user.user_id,
+        action: 'LOGIN_2FA_FALLBACK_MISMATCH',
+        resource: user.email,
+        req,
+        severity: 'WARN',
+        metadata: { method: 'telegram' }
+      });
+      throw createHttpError(400, 'Thông tin không khớp với phương thức 2FA đã đăng ký');
+    }
+
+    otpMeta = await sendTelegram2faOtp({
+      userId: user.user_id,
+      chatId: expectedTarget,
+      req
+    });
+    maskedTarget = maskTelegramChatId(expectedTarget);
+  }
+
+  fallbackChallengeStore.set(challengeToken, {
+    userId: user.user_id,
+    method: cleanMethod,
+    target: expectedTarget,
+    expiresAt: Date.now() + 5 * 60 * 1000
+  });
+
+  const payload = {
+    method: cleanMethod,
+    maskedTarget,
+    deliveryMode: otpMeta.deliveryMode,
+    expiresInSeconds: otpMeta.expiresInSeconds
+  };
+  if (otpMeta.fallbackReason) {
+    payload.fallbackReason = otpMeta.fallbackReason;
+  }
+  if (otpMeta.previewOtp) {
+    payload.previewOtp = otpMeta.previewOtp;
+  }
+
+  return payload;
 }
 
 /**
@@ -1167,6 +1448,7 @@ module.exports = {
   verifyTelegram2faOtp,
   verifyLogin2fa,
   resendLogin2fa,
+  sendFallbackLogin2fa,
   updateEmail,
   disable2faMethod
 };

@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axiosClient from '../api/axiosClient';
+import axiosClient, { TAB_TOKEN_KEY } from '../api/axiosClient';
 import {
   clearAdminSecretSegment,
   getOrCreateAdminSecretSegment,
@@ -36,27 +36,26 @@ export function AuthProvider({ children }) {
   const fetchCurrentUser = useCallback(async () => {
     setLoading(true);
     let hasSessionFlag = false;
+    let hasTabToken = false;
     try {
       hasSessionFlag = sessionStorage.getItem(SESSION_FLAG_KEY) === '1';
+      hasTabToken = Boolean(sessionStorage.getItem(TAB_TOKEN_KEY));
     } catch {
       hasSessionFlag = false;
+      hasTabToken = false;
     }
 
-    if (!hasSessionFlag) {
+    if (!hasSessionFlag || !hasTabToken) {
       clearAdminSecretSegment();
       try {
+        sessionStorage.removeItem(SESSION_FLAG_KEY);
+        sessionStorage.removeItem(TAB_TOKEN_KEY);
         sessionStorage.removeItem(REMINDER_UNTIL_KEY);
       } catch {
         // Bỏ qua lỗi storage
       }
-      try {
-        await axiosClient.post('/auth/logout');
-      } catch {
-        // Bỏ qua lỗi mạng nếu server chưa sẵn sàng
-      } finally {
-        setUser(null);
-        setLoading(false);
-      }
+      setUser(null);
+      setLoading(false);
       return;
     }
 
@@ -65,6 +64,7 @@ export function AuthProvider({ children }) {
       const fetchedUser = response.data?.data?.user || null;
       if (!fetchedUser) {
         sessionStorage.removeItem(SESSION_FLAG_KEY);
+        sessionStorage.removeItem(TAB_TOKEN_KEY);
         sessionStorage.removeItem(REMINDER_UNTIL_KEY);
         clearAdminSecretSegment();
       } else {
@@ -79,6 +79,7 @@ export function AuthProvider({ children }) {
     } catch {
       try {
         sessionStorage.removeItem(SESSION_FLAG_KEY);
+        sessionStorage.removeItem(TAB_TOKEN_KEY);
         sessionStorage.removeItem(REMINDER_UNTIL_KEY);
       } catch {
         // Bỏ qua lỗi storage
@@ -94,10 +95,13 @@ export function AuthProvider({ children }) {
     fetchCurrentUser();
   }, [fetchCurrentUser]);
 
-  const applyAuthenticatedSession = (loggedInUser) => {
+  const applyAuthenticatedSession = (loggedInUser, accessToken) => {
     if (!loggedInUser) return;
     try {
       sessionStorage.setItem(SESSION_FLAG_KEY, '1');
+      if (accessToken) {
+        sessionStorage.setItem(TAB_TOKEN_KEY, accessToken);
+      }
       sessionStorage.removeItem(CHALLENGE_STORAGE_KEY);
     } catch {
       // Bỏ qua lỗi storage
@@ -132,21 +136,32 @@ export function AuthProvider({ children }) {
       return response.data;
     }
 
-    applyAuthenticatedSession(data?.user || null);
+    applyAuthenticatedSession(data?.user || null, data?.accessToken || data?.token);
     return response.data;
   };
 
-  const verifyLogin2fa = async ({ challengeToken, code }) => {
+  const verifyLogin2fa = async ({ challengeToken, code, method }) => {
     const response = await axiosClient.post('/auth/login/verify-2fa', {
       challengeToken,
-      code: String(code || '').trim()
+      code: String(code || '').trim(),
+      ...(method ? { method } : {})
     });
-    applyAuthenticatedSession(response.data?.data?.user || null);
+    const data = response.data?.data;
+    applyAuthenticatedSession(data?.user || null, data?.accessToken || data?.token);
     return response.data;
   };
 
   const resendLogin2fa = async (challengeToken) => {
     const response = await axiosClient.post('/auth/login/resend-2fa', { challengeToken });
+    return response.data;
+  };
+
+  const sendFallbackLogin2fa = async ({ challengeToken, method, target }) => {
+    const response = await axiosClient.post('/auth/login/fallback-2fa/send', {
+      challengeToken,
+      method,
+      target
+    });
     return response.data;
   };
 
@@ -198,6 +213,14 @@ export function AuthProvider({ children }) {
 
   const updateEmail = async (email) => {
     const response = await axiosClient.patch('/auth/email', { email });
+    const refreshedToken = response.data?.data?.accessToken || response.data?.data?.token;
+    if (refreshedToken) {
+      try {
+        sessionStorage.setItem(TAB_TOKEN_KEY, refreshedToken);
+      } catch {
+        // ignore
+      }
+    }
     const updatedUser = response.data?.data?.user || null;
     let newAdminBasePath = null;
     if (updatedUser) {
@@ -305,6 +328,7 @@ export function AuthProvider({ children }) {
     } finally {
       try {
         sessionStorage.removeItem(SESSION_FLAG_KEY);
+        sessionStorage.removeItem(TAB_TOKEN_KEY);
         sessionStorage.removeItem(REMINDER_UNTIL_KEY);
         sessionStorage.removeItem(CHALLENGE_STORAGE_KEY);
       } catch {
@@ -326,6 +350,7 @@ export function AuthProvider({ children }) {
         login,
         verifyLogin2fa,
         resendLogin2fa,
+        sendFallbackLogin2fa,
         register,
         setup2fa,
         verify2fa,

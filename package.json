@@ -1,0 +1,15 @@
+{
+  "name": "seculicense-hub",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Root workspace runner for SecuLicense Hub (Backend + Frontend)",
+  "scripts": {
+    "dev": "concurrently --prefix \"[{name}]\" -n SERVER,CLIENT -c green,yellow \"npm --prefix server run dev\" \"npm --prefix client run dev\"",
+    "dev:server": "npm --prefix server run dev",
+    "dev:client": "npm --prefix client run dev",
+    "build:client": "npm --prefix client run build"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.7"
+  }
+}

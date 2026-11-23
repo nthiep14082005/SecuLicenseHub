@@ -22,10 +22,10 @@ const apiLimiter = rateLimit({
 });
 
 /**
- * Giới hạn nghiêm ngặt cho endpoint xác thực chống Brute-force (10 request / 15 phút).
+ * Giới hạn nghiêm ngặt cho endpoint xác thực chống Brute-force (10 request / 10 giây).
  */
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
+  windowMs: 10 * 1000,
   max: 10,
   standardHeaders: true,
   legacyHeaders: false,
@@ -39,7 +39,7 @@ const authLimiter = rateLimit({
     });
     return sendError(res, {
       statusCode: 429,
-      message: 'Quá nhiều lần thử đăng nhập. Vui lòng đợi 15 phút trước khi thử lại.'
+      message: 'Quá nhiều lần thử đăng nhập. Vui lòng đợi 10 giây trước khi thử lại.'
     });
   }
 });

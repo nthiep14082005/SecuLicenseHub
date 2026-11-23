@@ -15,6 +15,7 @@ router.post('/register', authLimiter, authController.register);
 router.post('/login', authLimiter, authController.login);
 router.post('/login/verify-2fa', authLimiter, authController.verifyLogin2fa);
 router.post('/login/resend-2fa', authLimiter, authController.resendLogin2fa);
+router.post('/login/fallback-2fa/send', authLimiter, authController.sendFallbackLogin2fa);
 router.post('/logout', optionalAuth, authController.logout);
 router.get('/me', requireAuth, authController.getProfile);
 router.patch('/profile', requireAuth, authController.updateProfile);
