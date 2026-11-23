@@ -78,6 +78,7 @@ export default function UserMenuDropdown({ variant = 'light' }) {
     verifyEmail2faOtp,
     sendWhatsapp2faOtp,
     verifyWhatsapp2faOtp,
+    disable2faMethod,
     logout
   } = useAuth();
   const { totalCount } = useCart();
@@ -157,6 +158,7 @@ export default function UserMenuDropdown({ variant = 'light' }) {
   const isInAdmin = location.pathname.startsWith('/admin');
   const isGmail = Boolean(user.email && user.email.toLowerCase().endsWith('@gmail.com'));
   const methods = user.twoFactorMethods || {};
+  const enabledMethodsCount = [methods.totp, methods.gmail, methods.whatsapp].filter(Boolean).length;
   const hasAny2fa = Boolean(
     user.hasAny2FA || user.is2faEnabled || methods.totp || methods.gmail || methods.whatsapp
   );
@@ -453,6 +455,41 @@ export default function UserMenuDropdown({ variant = 'light' }) {
     }
   };
 
+  const handleDisableTwoFaMethod = async (method) => {
+    setTwoFaLoading(true);
+    setTwoFaFeedback(null);
+    try {
+      const res = await disable2faMethod(method);
+      if (method === 'whatsapp') {
+        const nextPrefs = { ...prefs, whatsapp2faEnabled: false };
+        saveUserPrefs(user.userId, nextPrefs);
+        setPrefs(nextPrefs);
+        setWaPreviewOtp('');
+        setWaCodeInput('');
+      } else if (method === 'gmail') {
+        const nextPrefs = { ...prefs, email2faEnabled: false };
+        saveUserPrefs(user.userId, nextPrefs);
+        setPrefs(nextPrefs);
+        setEmailPreviewOtp('');
+        setEmailCodeInput('');
+      } else if (method === 'totp') {
+        setTotpQrData(null);
+        setTotpCode('');
+      }
+      setTwoFaFeedback({
+        type: 'success',
+        message: res?.message || 'Đã tắt phương thức xác thực 2 lớp thành công!'
+      });
+    } catch (err) {
+      setTwoFaFeedback({
+        type: 'error',
+        message: err.response?.data?.message || 'Không thể tắt phương thức xác thực 2 lớp.'
+      });
+    } finally {
+      setTwoFaLoading(false);
+    }
+  };
+
   const handleSubmitBugReport = async (e) => {
     e.preventDefault();
     if (!bugTitle.trim() || !bugDesc.trim()) {
@@ -658,6 +695,17 @@ export default function UserMenuDropdown({ variant = 'light' }) {
               >
                 <QrCode className="w-4 h-4" />
                 <span>Google Auth</span>
+                {methods.totp && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
+                      twoFaMethod === 'totp'
+                        ? 'bg-white/25 text-white'
+                        : 'bg-emerald-100 text-emerald-800'
+                    }`}
+                  >
+                    Đã bật
+                  </span>
+                )}
               </button>
               <button
                 type="button"
@@ -670,6 +718,17 @@ export default function UserMenuDropdown({ variant = 'light' }) {
               >
                 <MessageCircle className="w-4 h-4" />
                 <span>OTP qua WhatsApp</span>
+                {methods.whatsapp && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
+                      twoFaMethod === 'whatsapp'
+                        ? 'bg-white/25 text-white'
+                        : 'bg-emerald-100 text-emerald-800'
+                    }`}
+                  >
+                    Đã bật
+                  </span>
+                )}
               </button>
               <button
                 type="button"
@@ -682,6 +741,17 @@ export default function UserMenuDropdown({ variant = 'light' }) {
               >
                 <Mail className="w-4 h-4" />
                 <span>OTP qua Gmail</span>
+                {methods.gmail && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
+                      twoFaMethod === 'email'
+                        ? 'bg-white/25 text-white'
+                        : 'bg-emerald-100 text-emerald-800'
+                    }`}
+                  >
+                    Đã bật
+                  </span>
+                )}
               </button>
             </div>
 
@@ -708,28 +778,60 @@ export default function UserMenuDropdown({ variant = 'light' }) {
               {/* Phương thức 1: Google Authenticator */}
               {twoFaMethod === 'totp' && (
                 <form onSubmit={handleVerifyTotp} className="space-y-3">
+                  {methods.totp && (
+                    <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200 flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-[11px] text-slate-700">
+                        <span className="font-semibold text-emerald-700">
+                          Google Authenticator đang bật.
+                        </span>
+                        {enabledMethodsCount <= 1 && (
+                          <div className="text-rose-700 mt-0.5">
+                            Phải giữ lại ít nhất 1 phương thức xác thực 2 lớp.
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={twoFaLoading || enabledMethodsCount <= 1}
+                        onClick={() => handleDisableTwoFaMethod('totp')}
+                        className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-semibold shrink-0"
+                      >
+                        Xóa / Tắt phương thức này
+                      </button>
+                    </div>
+                  )}
+
                   {twoFaLoading && !totpQrData ? (
                     <div className="py-6 text-center text-slate-500">
                       Đang tạo mã QR Google Authenticator...
                     </div>
-                  ) : (
-                    totpQrData && (
-                      <div className="text-center space-y-2">
-                        <p className="text-slate-600">
-                          Quét mã QR bằng <strong>Google Authenticator</strong> hoặc nhập khóa bí mật:
-                        </p>
-                        <div className="flex justify-center">
-                          <img
-                            src={totpQrData.qrDataUrl}
-                            alt="QR 2FA TOTP"
-                            className="w-40 h-40 border border-emerald-200 rounded-xl p-1.5 bg-white"
-                          />
-                        </div>
-                        <div className="p-2 rounded-lg bg-slate-100 font-mono text-[11px] break-all">
-                          Secret: {totpQrData.secret}
-                        </div>
+                  ) : totpQrData ? (
+                    <div className="text-center space-y-2">
+                      <p className="text-slate-600">
+                        Quét mã QR bằng <strong>Google Authenticator</strong> hoặc nhập khóa bí mật:
+                      </p>
+                      <div className="flex justify-center">
+                        <img
+                          src={totpQrData.qrDataUrl}
+                          alt="QR 2FA TOTP"
+                          className="w-40 h-40 border border-emerald-200 rounded-xl p-1.5 bg-white"
+                        />
                       </div>
-                    )
+                      <div className="p-2 rounded-lg bg-slate-100 font-mono text-[11px] break-all">
+                        Secret: {totpQrData.secret}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-3">
+                      <button
+                        type="button"
+                        disabled={twoFaLoading}
+                        onClick={initTotpQr}
+                        className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold disabled:opacity-60"
+                      >
+                        Tạo mã QR Google Authenticator
+                      </button>
+                    </div>
                   )}
 
                   <div>
@@ -769,6 +871,30 @@ export default function UserMenuDropdown({ variant = 'light' }) {
               {/* Phương thức 2: OTP qua WhatsApp */}
               {twoFaMethod === 'whatsapp' && (
                 <form onSubmit={handleVerifyWhatsappOtp} className="space-y-3">
+                  {methods.whatsapp && (
+                    <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200 flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-[11px] text-slate-700">
+                        <span className="font-semibold text-emerald-700">
+                          OTP qua WhatsApp đang bật
+                          {user.whatsappPhone ? ` (+${user.whatsappPhone})` : ''}.
+                        </span>
+                        {enabledMethodsCount <= 1 && (
+                          <div className="text-rose-700 mt-0.5">
+                            Phải giữ lại ít nhất 1 phương thức xác thực 2 lớp.
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={twoFaLoading || enabledMethodsCount <= 1}
+                        onClick={() => handleDisableTwoFaMethod('whatsapp')}
+                        className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-semibold shrink-0"
+                      >
+                        Xóa / Tắt phương thức này
+                      </button>
+                    </div>
+                  )}
+
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
                       Số WhatsApp nhận mã OTP (tự chuẩn hóa 0xxx → 84xxx)
@@ -837,6 +963,29 @@ export default function UserMenuDropdown({ variant = 'light' }) {
               {/* Phương thức 3: Email OTP (Gmail) */}
               {twoFaMethod === 'email' && (
                 <form onSubmit={handleVerifyEmailOtp} className="space-y-3">
+                  {methods.gmail && (
+                    <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200 flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-[11px] text-slate-700">
+                        <span className="font-semibold text-emerald-700">
+                          OTP qua Gmail đang bật.
+                        </span>
+                        {enabledMethodsCount <= 1 && (
+                          <div className="text-rose-700 mt-0.5">
+                            Phải giữ lại ít nhất 1 phương thức xác thực 2 lớp.
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={twoFaLoading || enabledMethodsCount <= 1}
+                        onClick={() => handleDisableTwoFaMethod('gmail')}
+                        className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-semibold shrink-0"
+                      >
+                        Xóa / Tắt phương thức này
+                      </button>
+                    </div>
+                  )}
+
                   <div className="p-3 rounded-xl bg-rose-50/50 border border-rose-100 flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <div className="text-[11px] text-slate-500">Địa chỉ Gmail nhận OTP:</div>

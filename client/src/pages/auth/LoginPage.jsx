@@ -53,12 +53,19 @@ export default function LoginPage() {
       const status = err.response?.status;
       const payload = err.response?.data;
 
-      if (status === 423) {
+      if (status === 410) {
         setAlert({
           type: 'locked',
           message:
             payload?.message ||
-            'Tài khoản đang bị tạm khóa 15 phút do nhập sai mật khẩu 5 lần liên tiếp.'
+            'Tài khoản đã bị xóa vĩnh viễn do nhập sai mật khẩu quá 10 lần liên tiếp.'
+        });
+      } else if (status === 423) {
+        setAlert({
+          type: 'locked',
+          message:
+            payload?.message ||
+            'Tài khoản đang bị tạm khóa 15 phút do nhập sai mật khẩu liên tiếp.'
         });
       } else if (status === 429) {
         setAlert({

@@ -310,3 +310,20 @@ exports.updateEmail = async (req, res, next) => {
     return next(err);
   }
 };
+
+exports.disable2faMethod = async (req, res, next) => {
+  try {
+    const data = await authService.disable2faMethod({
+      userId: req.user.userId,
+      method: req.body?.method,
+      req
+    });
+    return sendSuccess(res, {
+      statusCode: 200,
+      message: 'Đã tắt phương thức xác thực 2 lớp thành công',
+      data
+    });
+  } catch (err) {
+    return next(err);
+  }
+};

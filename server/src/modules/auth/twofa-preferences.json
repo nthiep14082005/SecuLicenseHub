@@ -1,1 +1,8 @@
-{}
+{
+  "4": {
+    "totp": true,
+    "gmail": false,
+    "whatsapp": false,
+    "whatsappPhone": ""
+  }
+}

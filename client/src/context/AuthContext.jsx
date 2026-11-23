@@ -267,6 +267,28 @@ export function AuthProvider({ children }) {
     return response.data;
   };
 
+  const disable2faMethod = async (method) => {
+    const response = await axiosClient.post('/auth/2fa/disable', {
+      method: String(method || '').trim().toLowerCase()
+    });
+    const methods = response.data?.data?.twoFactorMethods;
+    setUser((prev) => {
+      if (!prev) return prev;
+      const nextMethods = methods || {
+        ...(prev.twoFactorMethods || {}),
+        [method]: false
+      };
+      return {
+        ...prev,
+        is2faEnabled: Boolean(nextMethods.totp || nextMethods.gmail || nextMethods.whatsapp),
+        hasAny2FA: Boolean(nextMethods.totp || nextMethods.gmail || nextMethods.whatsapp),
+        whatsappPhone: method === 'whatsapp' ? null : prev.whatsappPhone,
+        twoFactorMethods: nextMethods
+      };
+    });
+    return response.data;
+  };
+
   const logout = async () => {
     try {
       await axiosClient.post('/auth/logout');
@@ -305,6 +327,7 @@ export function AuthProvider({ children }) {
         verifyEmail2faOtp,
         sendWhatsapp2faOtp,
         verifyWhatsapp2faOtp,
+        disable2faMethod,
         logout
       }}
     >

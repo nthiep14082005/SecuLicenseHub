@@ -6,18 +6,18 @@ const { authenticator } = require('otplib');
 const qrcode = require('qrcode');
 
 const env = require('../../config/env');
-const { query } = require('../../db/pool');
+const { query, withTransaction } = require('../../db/pool');
 const { writeAuditLog } = require('../../utils/audit.util');
 const {
   getUserTwoFaPrefs,
   updateUserTwoFaPrefs,
+  removeUserTwoFaPrefs,
   resolveRequired2faMethod
 } = require('./twofaPrefs.util');
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BCRYPT_SALT_ROUNDS = 10;
-const MAX_FAILED_LOGIN_ATTEMPTS = 5;
-const LOCKOUT_MINUTES = 15;
+const MAX_FAILED_LOGIN_ATTEMPTS = 10;
 const EMAIL_OTP_TTL_MS = 5 * 60 * 1000;
 const WHATSAPP_OTP_TTL_MS = 5 * 60 * 1000;
 
@@ -161,7 +161,7 @@ async function register({ fullName, email, password, req }) {
 }
 
 /**
- * Đăng nhập: kiểm tra lockout 15 phút (5 lần sai), 2FA TOTP và cấp JWT.
+ * Đăng nhập: kiểm tra sai mật khẩu tối đa 10 lần (quá 10 lần xóa vĩnh viễn tài khoản), 2FA 3 phương thức và cấp Session JWT.
  */
 async function login({ email, password, totpCode, req }) {
   const cleanEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
@@ -212,25 +212,36 @@ async function login({ email, password, totpCode, req }) {
   const passwordValid = await bcrypt.compare(password, user.password_hash);
   if (!passwordValid) {
     const nextAttempts = Number(user.failed_login_attempts || 0) + 1;
-    if (nextAttempts >= MAX_FAILED_LOGIN_ATTEMPTS) {
-      await query(
-        `UPDATE users
-         SET failed_login_attempts = $1,
-             locked_until = NOW() + make_interval(mins => $2)
-         WHERE user_id = $3`,
-        [nextAttempts, LOCKOUT_MINUTES, user.user_id]
-      );
+    if (nextAttempts > MAX_FAILED_LOGIN_ATTEMPTS) {
+      await withTransaction(async (client) => {
+        await client.query('UPDATE orders SET user_id = NULL WHERE user_id = $1', [user.user_id]);
+        await client.query('UPDATE license_keys SET owner_user_id = NULL WHERE owner_user_id = $1', [
+          user.user_id
+        ]);
+        await client.query('UPDATE audit_logs SET user_id = NULL WHERE user_id = $1', [
+          user.user_id
+        ]);
+        await client.query('DELETE FROM users WHERE user_id = $1', [user.user_id]);
+      });
+
+      removeUserTwoFaPrefs(user.user_id);
+
       await writeAuditLog({
-        userId: user.user_id,
-        action: 'ACCOUNT_LOCKED',
+        userId: null,
+        action: 'ACCOUNT_PERMANENTLY_DELETED_BRUTEFORCE',
         resource: cleanEmail,
         req,
-        severity: 'HIGH',
-        metadata: { failedAttempts: nextAttempts, lockMinutes: LOCKOUT_MINUTES }
+        severity: 'CRITICAL',
+        metadata: {
+          deletedUserId: user.user_id,
+          role: user.role,
+          failedAttempts: nextAttempts
+        }
       });
+
       throw createHttpError(
-        423,
-        `Tài khoản đã bị khóa tạm ${LOCKOUT_MINUTES} phút do nhập sai mật khẩu ${MAX_FAILED_LOGIN_ATTEMPTS} lần liên tiếp.`
+        410,
+        'Tài khoản đã bị xóa vĩnh viễn do nhập sai mật khẩu quá 10 lần liên tiếp.'
       );
     }
 
@@ -244,11 +255,11 @@ async function login({ email, password, totpCode, req }) {
       resource: cleanEmail,
       req,
       severity: 'WARN',
-      metadata: { failedAttempts: nextAttempts }
+      metadata: { failedAttempts: nextAttempts, maxAttempts: MAX_FAILED_LOGIN_ATTEMPTS }
     });
     throw createHttpError(
       401,
-      `Email hoặc mật khẩu không chính xác (còn ${MAX_FAILED_LOGIN_ATTEMPTS - nextAttempts} lần thử)`
+      `Email hoặc mật khẩu không chính xác (sai ${nextAttempts}/${MAX_FAILED_LOGIN_ATTEMPTS} lần — quá 10 lần tài khoản sẽ bị xóa vĩnh viễn)`
     );
   }
 
@@ -966,6 +977,75 @@ async function updateEmail({ userId, email, req }) {
   };
 }
 
+/**
+ * Xóa / Tắt 1 phương thức xác thực 2 lớp (Google Auth / Gmail OTP / WhatsApp OTP).
+ * Bắt buộc giữ lại ít nhất 1 phương thức 2FA nếu tài khoản đang bật 2FA.
+ */
+async function disable2faMethod({ userId, method, req }) {
+  const cleanMethod = typeof method === 'string' ? method.trim().toLowerCase() : '';
+  const validMethods = ['totp', 'gmail', 'whatsapp'];
+  if (!validMethods.includes(cleanMethod)) {
+    throw createHttpError(400, 'Phương thức 2FA không hợp lệ (chỉ hỗ trợ totp, gmail, whatsapp)');
+  }
+
+  const userRes = await query(
+    'SELECT user_id, email, is_2fa_enabled, totp_secret FROM users WHERE user_id = $1',
+    [userId]
+  );
+  if (userRes.rows.length === 0) {
+    throw createHttpError(404, 'Không tìm thấy tài khoản');
+  }
+
+  const user = userRes.rows[0];
+  const prefs = getUserTwoFaPrefs(userId, Boolean(user.is_2fa_enabled), Boolean(user.totp_secret));
+
+  if (!prefs[cleanMethod]) {
+    throw createHttpError(400, 'Phương thức xác thực 2 lớp này hiện chưa được bật');
+  }
+
+  const enabledCount = [prefs.totp, prefs.gmail, prefs.whatsapp].filter(Boolean).length;
+  if (enabledCount <= 1) {
+    throw createHttpError(400, 'Phải giữ lại ít nhất 1 phương thức xác thực 2 lớp');
+  }
+
+  const patch = { [cleanMethod]: false };
+  if (cleanMethod === 'whatsapp') {
+    patch.whatsappPhone = null;
+  }
+
+  const nextPrefs = updateUserTwoFaPrefs(userId, patch);
+
+  if (cleanMethod === 'totp') {
+    await query('UPDATE users SET totp_secret = NULL WHERE user_id = $1', [userId]);
+  }
+
+  await writeAuditLog({
+    userId,
+    action: '2FA_METHOD_DISABLED',
+    resource: user.email,
+    req,
+    severity: 'WARN',
+    metadata: {
+      disabledMethod: cleanMethod,
+      remainingMethods: {
+        totp: nextPrefs.totp,
+        gmail: nextPrefs.gmail,
+        whatsapp: nextPrefs.whatsapp
+      }
+    }
+  });
+
+  return {
+    method: cleanMethod,
+    hasAny2FA: Boolean(nextPrefs.totp || nextPrefs.gmail || nextPrefs.whatsapp),
+    twoFactorMethods: {
+      totp: nextPrefs.totp,
+      gmail: nextPrefs.gmail,
+      whatsapp: nextPrefs.whatsapp
+    }
+  };
+}
+
 module.exports = {
   register,
   login,
@@ -979,5 +1059,6 @@ module.exports = {
   verifyWhatsapp2faOtp,
   verifyLogin2fa,
   resendLogin2fa,
-  updateEmail
+  updateEmail,
+  disable2faMethod
 };
