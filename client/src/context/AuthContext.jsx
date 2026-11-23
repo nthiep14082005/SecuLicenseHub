@@ -209,14 +209,18 @@ export function AuthProvider({ children }) {
     return { response: response.data, user: updatedUser, newAdminBasePath };
   };
 
-  const sendEmail2faOtp = async () => {
-    const response = await axiosClient.post('/auth/2fa/email/send');
+  const sendEmail2faOtp = async (targetEmail) => {
+    const response = await axiosClient.post(
+      '/auth/2fa/email/send',
+      targetEmail ? { targetEmail } : {}
+    );
     return response.data;
   };
 
-  const verifyEmail2faOtp = async (token) => {
+  const verifyEmail2faOtp = async (token, targetEmail) => {
     const response = await axiosClient.post('/auth/2fa/email/verify', {
-      token: String(token || '').trim()
+      token: String(token || '').trim(),
+      ...(targetEmail ? { targetEmail } : {})
     });
     try {
       sessionStorage.removeItem(REMINDER_UNTIL_KEY);
@@ -224,12 +228,14 @@ export function AuthProvider({ children }) {
       // ignore
     }
     const methods = response.data?.data?.twoFactorMethods;
+    const verifiedGmail = response.data?.data?.gmailAddress || targetEmail;
     setUser((prev) =>
       prev
         ? {
             ...prev,
             is2faEnabled: true,
             hasAny2FA: true,
+            gmailAddress: verifiedGmail || prev.gmailAddress,
             twoFactorMethods: methods || { ...(prev.twoFactorMethods || {}), gmail: true }
           }
         : prev
@@ -237,14 +243,15 @@ export function AuthProvider({ children }) {
     return response.data;
   };
 
-  const sendWhatsapp2faOtp = async (phone) => {
-    const response = await axiosClient.post('/auth/2fa/whatsapp/send', { phone });
+  const sendTelegram2faOtp = async (chatId) => {
+    const response = await axiosClient.post('/auth/2fa/telegram/send', { chatId });
     return response.data;
   };
 
-  const verifyWhatsapp2faOtp = async (token) => {
-    const response = await axiosClient.post('/auth/2fa/whatsapp/verify', {
-      token: String(token || '').trim()
+  const verifyTelegram2faOtp = async (token, chatId) => {
+    const response = await axiosClient.post('/auth/2fa/telegram/verify', {
+      token: String(token || '').trim(),
+      ...(chatId ? { chatId: String(chatId).trim() } : {})
     });
     try {
       sessionStorage.removeItem(REMINDER_UNTIL_KEY);
@@ -252,15 +259,15 @@ export function AuthProvider({ children }) {
       // ignore
     }
     const methods = response.data?.data?.twoFactorMethods;
-    const verifiedPhone = response.data?.data?.phone;
+    const verifiedChatId = response.data?.data?.chatId;
     setUser((prev) =>
       prev
         ? {
             ...prev,
             is2faEnabled: true,
             hasAny2FA: true,
-            whatsappPhone: verifiedPhone || prev.whatsappPhone,
-            twoFactorMethods: methods || { ...(prev.twoFactorMethods || {}), whatsapp: true }
+            telegramChatId: verifiedChatId || prev.telegramChatId,
+            twoFactorMethods: methods || { ...(prev.twoFactorMethods || {}), telegram: true }
           }
         : prev
     );
@@ -280,9 +287,10 @@ export function AuthProvider({ children }) {
       };
       return {
         ...prev,
-        is2faEnabled: Boolean(nextMethods.totp || nextMethods.gmail || nextMethods.whatsapp),
-        hasAny2FA: Boolean(nextMethods.totp || nextMethods.gmail || nextMethods.whatsapp),
-        whatsappPhone: method === 'whatsapp' ? null : prev.whatsappPhone,
+        is2faEnabled: Boolean(nextMethods.totp || nextMethods.gmail || nextMethods.telegram),
+        hasAny2FA: Boolean(nextMethods.totp || nextMethods.gmail || nextMethods.telegram),
+        gmailAddress: method === 'gmail' ? '' : prev.gmailAddress,
+        telegramChatId: method === 'telegram' ? '' : prev.telegramChatId,
         twoFactorMethods: nextMethods
       };
     });
@@ -325,8 +333,8 @@ export function AuthProvider({ children }) {
         updateEmail,
         sendEmail2faOtp,
         verifyEmail2faOtp,
-        sendWhatsapp2faOtp,
-        verifyWhatsapp2faOtp,
+        sendTelegram2faOtp,
+        verifyTelegram2faOtp,
         disable2faMethod,
         logout
       }}

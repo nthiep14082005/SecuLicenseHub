@@ -29,13 +29,14 @@ function getUserTwoFaPrefs(userId, dbIs2faEnabled = false, dbHasTotpSecret = fal
 
   const totp = Boolean(saved.totp) || Boolean(dbIs2faEnabled && dbHasTotpSecret);
   const gmail = Boolean(saved.gmail);
-  const whatsapp = Boolean(saved.whatsapp);
+  const telegram = Boolean(saved.telegram);
 
   return {
     totp,
     gmail,
-    whatsapp,
-    whatsappPhone: saved.whatsappPhone || ''
+    telegram,
+    gmailAddress: saved.gmailAddress || '',
+    telegramChatId: saved.telegramChatId || ''
   };
 }
 
@@ -45,18 +46,23 @@ function updateUserTwoFaPrefs(userId, patch) {
   const current = allPrefs[key] || {
     totp: false,
     gmail: false,
-    whatsapp: false,
-    whatsappPhone: ''
+    telegram: false,
+    gmailAddress: '',
+    telegramChatId: ''
   };
 
   const next = {
     totp: patch.totp !== undefined ? Boolean(patch.totp) : Boolean(current.totp),
     gmail: patch.gmail !== undefined ? Boolean(patch.gmail) : Boolean(current.gmail),
-    whatsapp: patch.whatsapp !== undefined ? Boolean(patch.whatsapp) : Boolean(current.whatsapp),
-    whatsappPhone:
-      patch.whatsappPhone !== undefined
-        ? String(patch.whatsappPhone || '')
-        : String(current.whatsappPhone || '')
+    telegram: patch.telegram !== undefined ? Boolean(patch.telegram) : Boolean(current.telegram),
+    gmailAddress:
+      patch.gmailAddress !== undefined
+        ? String(patch.gmailAddress || '')
+        : String(current.gmailAddress || ''),
+    telegramChatId:
+      patch.telegramChatId !== undefined
+        ? String(patch.telegramChatId || '')
+        : String(current.telegramChatId || '')
   };
 
   allPrefs[key] = next;
@@ -76,14 +82,14 @@ function removeUserTwoFaPrefs(userId) {
 /**
  * Quy tắc ưu tiên bắt buộc:
  * 1. Bật Google Auth (totp) -> bắt buộc 'totp'
- * 2. Không có totp, bật gmail (+ whatsapp) -> bắt buộc 'gmail'
- * 3. Chỉ bật whatsapp -> bắt buộc 'whatsapp'
+ * 2. Không có totp, bật gmail (+ telegram) -> bắt buộc 'gmail'
+ * 3. Chỉ bật telegram -> bắt buộc 'telegram'
  */
 function resolveRequired2faMethod(prefs) {
   if (!prefs) return null;
   if (prefs.totp) return 'totp';
   if (prefs.gmail) return 'gmail';
-  if (prefs.whatsapp) return 'whatsapp';
+  if (prefs.telegram) return 'telegram';
   return null;
 }
 

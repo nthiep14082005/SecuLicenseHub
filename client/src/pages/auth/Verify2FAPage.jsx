@@ -6,8 +6,8 @@ import {
   CheckCircle2,
   KeyRound,
   Mail,
-  MessageCircle,
   RefreshCw,
+  Send,
   ShieldCheck
 } from 'lucide-react';
 import { CHALLENGE_STORAGE_KEY, useAuth } from '../../context/AuthContext';
@@ -23,10 +23,10 @@ const METHOD_META = {
     subtitle: 'Nhập mã OTP 6 chữ số đã được gửi tới hộp thư Gmail của bạn.',
     Icon: Mail
   },
-  whatsapp: {
-    title: 'Mã OTP qua WhatsApp',
-    subtitle: 'Nhập mã OTP 6 chữ số đã được gửi tới số WhatsApp của bạn.',
-    Icon: MessageCircle
+  telegram: {
+    title: 'Mã OTP qua Telegram',
+    subtitle: 'Nhập mã OTP 6 chữ số đã được gửi tới Telegram (@seculicense_otp_bot) của bạn.',
+    Icon: Send
   }
 };
 
@@ -83,7 +83,7 @@ export default function Verify2FAPage() {
 
   const meta = METHOD_META[challenge.requiredMethod] || METHOD_META.totp;
   const MethodIcon = meta.Icon;
-  const canResend = challenge.requiredMethod === 'gmail' || challenge.requiredMethod === 'whatsapp';
+  const canResend = challenge.requiredMethod === 'gmail' || challenge.requiredMethod === 'telegram';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -237,7 +237,13 @@ export default function Verify2FAPage() {
               className="px-4 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-semibold inline-flex items-center gap-1.5 disabled:opacity-60 transition"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${resending ? 'animate-spin' : ''}`} />
-              <span>{resending ? 'Đang gửi lại...' : 'Gửi lại mã'}</span>
+              <span>
+                {resending
+                  ? 'Đang gửi lại...'
+                  : challenge.requiredMethod === 'telegram'
+                  ? 'Gửi lại mã Telegram'
+                  : 'Gửi lại mã Gmail'}
+              </span>
             </button>
           </div>
         )}

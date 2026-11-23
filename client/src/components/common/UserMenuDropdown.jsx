@@ -12,7 +12,6 @@ import {
   LayoutDashboard,
   LogOut,
   Mail,
-  MessageCircle,
   QrCode,
   Send,
   Settings,
@@ -29,19 +28,21 @@ import { getAdminBasePath } from '../../utils/adminRoute.util';
 const PREFS_KEY_PREFIX = 'seculicense_user_prefs_';
 
 function loadUserPrefs(userId) {
-  if (!userId) return { phone: '', address: '', whatsapp2faEnabled: false, email2faEnabled: false };
+  if (!userId) return { phone: '', address: '', telegram2faEnabled: false, email2faEnabled: false };
   try {
     const raw = localStorage.getItem(`${PREFS_KEY_PREFIX}${userId}`);
-    if (!raw) return { phone: '', address: '', whatsapp2faEnabled: false, email2faEnabled: false };
+    if (!raw) return { phone: '', address: '', telegram2faEnabled: false, email2faEnabled: false };
     const parsed = JSON.parse(raw);
     return {
       phone: parsed.phone || '',
       address: parsed.address || '',
-      whatsapp2faEnabled: Boolean(parsed.whatsapp2faEnabled ?? parsed.sms2faEnabled),
+      telegram2faEnabled: Boolean(
+        parsed.telegram2faEnabled ?? parsed.whatsapp2faEnabled ?? parsed.sms2faEnabled
+      ),
       email2faEnabled: Boolean(parsed.email2faEnabled)
     };
   } catch {
-    return { phone: '', address: '', whatsapp2faEnabled: false, email2faEnabled: false };
+    return { phone: '', address: '', telegram2faEnabled: false, email2faEnabled: false };
   }
 }
 
@@ -76,8 +77,8 @@ export default function UserMenuDropdown({ variant = 'light' }) {
     updateEmail,
     sendEmail2faOtp,
     verifyEmail2faOtp,
-    sendWhatsapp2faOtp,
-    verifyWhatsapp2faOtp,
+    sendTelegram2faOtp,
+    verifyTelegram2faOtp,
     disable2faMethod,
     logout
   } = useAuth();
@@ -107,9 +108,10 @@ export default function UserMenuDropdown({ variant = 'light' }) {
   const [twoFaMethod, setTwoFaMethod] = useState('totp');
   const [totpQrData, setTotpQrData] = useState(null);
   const [totpCode, setTotpCode] = useState('');
-  const [waPhone, setWaPhone] = useState('');
-  const [waPreviewOtp, setWaPreviewOtp] = useState('');
-  const [waCodeInput, setWaCodeInput] = useState('');
+  const [tgChatId, setTgChatId] = useState('');
+  const [tgPreviewOtp, setTgPreviewOtp] = useState('');
+  const [tgCodeInput, setTgCodeInput] = useState('');
+  const [emailTargetInput, setEmailTargetInput] = useState('');
   const [emailPreviewOtp, setEmailPreviewOtp] = useState('');
   const [emailCodeInput, setEmailCodeInput] = useState('');
   const [twoFaLoading, setTwoFaLoading] = useState(false);
@@ -158,9 +160,9 @@ export default function UserMenuDropdown({ variant = 'light' }) {
   const isInAdmin = location.pathname.startsWith('/admin');
   const isGmail = Boolean(user.email && user.email.toLowerCase().endsWith('@gmail.com'));
   const methods = user.twoFactorMethods || {};
-  const enabledMethodsCount = [methods.totp, methods.gmail, methods.whatsapp].filter(Boolean).length;
+  const enabledMethodsCount = [methods.totp, methods.gmail, methods.telegram].filter(Boolean).length;
   const hasAny2fa = Boolean(
-    user.hasAny2FA || user.is2faEnabled || methods.totp || methods.gmail || methods.whatsapp
+    user.hasAny2FA || user.is2faEnabled || methods.totp || methods.gmail || methods.telegram
   );
   const initials = getInitials(user.fullName, user.email);
 
@@ -283,11 +285,12 @@ export default function UserMenuDropdown({ variant = 'light' }) {
     setMenuOpen(false);
     setTwoFaFeedback(null);
     setTotpCode('');
-    setWaCodeInput('');
-    setWaPreviewOtp('');
+    setTgCodeInput('');
+    setTgPreviewOtp('');
+    setEmailTargetInput(user.gmailAddress || user.email || '');
     setEmailCodeInput('');
     setEmailPreviewOtp('');
-    setWaPhone(prefs.phone || user.whatsappPhone || '');
+    setTgChatId(user.telegramChatId || '');
     setTwoFaModalOpen(true);
 
     if (twoFaMethod === 'totp' && !totpQrData) {
@@ -324,71 +327,69 @@ export default function UserMenuDropdown({ variant = 'light' }) {
     }
   };
 
-  const handleSendWhatsappOtp = async () => {
-    if (!waPhone.trim()) {
+  const handleSendTelegramOtp = async () => {
+    const cleanChatId = tgChatId.trim();
+    if (!/^-?\d{5,20}$/.test(cleanChatId)) {
       setTwoFaFeedback({
         type: 'error',
-        message: 'Vui lòng nhập số WhatsApp (VD: 0912345678) trước khi gửi mã.'
+        message: 'Vui lòng nhập Telegram Chat ID hợp lệ (VD: 5123456789) trước khi gửi mã.'
       });
       return;
     }
 
     setTwoFaLoading(true);
     setTwoFaFeedback(null);
-    setWaPreviewOtp('');
+    setTgPreviewOtp('');
     try {
-      const res = await sendWhatsapp2faOtp(waPhone.trim());
+      const res = await sendTelegram2faOtp(cleanChatId);
       const data = res?.data;
-      const nextPrefs = { ...prefs, phone: waPhone.trim() };
-      saveUserPrefs(user.userId, nextPrefs);
-      setPrefs(nextPrefs);
 
-      if (data?.deliveryMode === 'whatsapp') {
+      if (data?.deliveryMode === 'telegram') {
         setTwoFaFeedback({
           type: 'success',
           message:
             res?.message ||
-            `Đã gửi mã OTP 6 số qua WhatsApp tới số +${data.sentTo} (hiệu lực 5 phút).`
+            `Đã gửi mã OTP 6 số qua Telegram tới Chat ID ${data.sentTo} (hiệu lực 5 phút).`
         });
       } else {
-        setWaPreviewOtp(data?.previewOtp || '');
+        setTgPreviewOtp(data?.previewOtp || '');
         setTwoFaFeedback({
           type: 'info',
           message:
             data?.fallbackReason ||
             res?.message ||
-            'Chưa cấu hình WhatsApp Cloud API trong .env — đang dùng mã test.'
+            'Chưa cấu hình TELEGRAM_BOT_TOKEN — đang dùng mã test.'
         });
       }
     } catch (err) {
       setTwoFaFeedback({
         type: 'error',
-        message: err.response?.data?.message || 'Không thể gửi mã OTP qua WhatsApp.'
+        message: err.response?.data?.message || 'Không thể gửi mã OTP qua Telegram.'
       });
     } finally {
       setTwoFaLoading(false);
     }
   };
 
-  const handleVerifyWhatsappOtp = async (e) => {
+  const handleVerifyTelegramOtp = async (e) => {
     e.preventDefault();
     setTwoFaLoading(true);
     setTwoFaFeedback(null);
     try {
-      const res = await verifyWhatsapp2faOtp(waCodeInput);
-      const nextPrefs = { ...prefs, whatsapp2faEnabled: true };
+      const res = await verifyTelegram2faOtp(tgCodeInput, tgChatId.trim());
+      const nextPrefs = { ...prefs, telegram2faEnabled: true };
       saveUserPrefs(user.userId, nextPrefs);
       setPrefs(nextPrefs);
-      setWaCodeInput('');
-      setWaPreviewOtp('');
+      setTgCodeInput('');
+      setTgPreviewOtp('');
       setTwoFaFeedback({
         type: 'success',
-        message: res?.message || 'Đã kích hoạt xác thực 2 lớp qua WhatsApp!'
+        message: res?.message || 'Đã kích hoạt xác thực 2 lớp qua Telegram!'
       });
     } catch (err) {
       setTwoFaFeedback({
         type: 'error',
-        message: err.response?.data?.message || 'Mã OTP WhatsApp không chính xác hoặc đã hết hạn.'
+        message: err.response?.data?.message || 'Mã OTP Telegram không chính xác hoặc đã hết hạn.'
       });
     } finally {
       setTwoFaLoading(false);
@@ -396,11 +397,20 @@ export default function UserMenuDropdown({ variant = 'light' }) {
   };
 
   const handleSendEmailOtp = async () => {
+    const cleanTarget = emailTargetInput.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanTarget) || !cleanTarget.endsWith('@gmail.com')) {
+      setTwoFaFeedback({
+        type: 'error',
+        message: 'Vui lòng nhập địa chỉ Gmail hợp lệ (kết thúc bằng @gmail.com) trước khi gửi mã.'
+      });
+      return;
+    }
+
     setTwoFaLoading(true);
     setTwoFaFeedback(null);
     setEmailPreviewOtp('');
     try {
-      const res = await sendEmail2faOtp();
+      const res = await sendEmail2faOtp(cleanTarget);
       const data = res?.data;
 
       if (data?.deliveryMode === 'smtp') {
@@ -434,8 +444,9 @@ export default function UserMenuDropdown({ variant = 'light' }) {
     e.preventDefault();
     setTwoFaLoading(true);
     setTwoFaFeedback(null);
+    const cleanTarget = emailTargetInput.trim().toLowerCase();
     try {
-      const res = await verifyEmail2faOtp(emailCodeInput);
+      const res = await verifyEmail2faOtp(emailCodeInput, cleanTarget);
       const nextPrefs = { ...prefs, email2faEnabled: true };
       saveUserPrefs(user.userId, nextPrefs);
       setPrefs(nextPrefs);
@@ -460,16 +471,18 @@ export default function UserMenuDropdown({ variant = 'light' }) {
     setTwoFaFeedback(null);
     try {
       const res = await disable2faMethod(method);
-      if (method === 'whatsapp') {
-        const nextPrefs = { ...prefs, whatsapp2faEnabled: false };
+      if (method === 'telegram') {
+        const nextPrefs = { ...prefs, telegram2faEnabled: false };
         saveUserPrefs(user.userId, nextPrefs);
         setPrefs(nextPrefs);
-        setWaPreviewOtp('');
-        setWaCodeInput('');
+        setTgChatId('');
+        setTgPreviewOtp('');
+        setTgCodeInput('');
       } else if (method === 'gmail') {
         const nextPrefs = { ...prefs, email2faEnabled: false };
         saveUserPrefs(user.userId, nextPrefs);
         setPrefs(nextPrefs);
+        setEmailTargetInput(user.email || '');
         setEmailPreviewOtp('');
         setEmailCodeInput('');
       } else if (method === 'totp') {
@@ -709,19 +722,19 @@ export default function UserMenuDropdown({ variant = 'light' }) {
               </button>
               <button
                 type="button"
-                onClick={() => handleSwitchTwoFaMethod('whatsapp')}
+                onClick={() => handleSwitchTwoFaMethod('telegram')}
                 className={`p-2 rounded-xl border font-semibold flex flex-col items-center gap-1 transition ${
-                  twoFaMethod === 'whatsapp'
+                  twoFaMethod === 'telegram'
                     ? 'bg-emerald-600 text-white border-emerald-600'
                     : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
                 }`}
               >
-                <MessageCircle className="w-4 h-4" />
-                <span>OTP qua WhatsApp</span>
-                {methods.whatsapp && (
+                <Send className="w-4 h-4" />
+                <span>OTP qua Telegram</span>
+                {methods.telegram && (
                   <span
                     className={`px-1.5 py-0.5 rounded-full text-[9px] font-bold ${
-                      twoFaMethod === 'whatsapp'
+                      twoFaMethod === 'telegram'
                         ? 'bg-white/25 text-white'
                         : 'bg-emerald-100 text-emerald-800'
                     }`}
@@ -868,15 +881,15 @@ export default function UserMenuDropdown({ variant = 'light' }) {
                 </form>
               )}
 
-              {/* Phương thức 2: OTP qua WhatsApp */}
-              {twoFaMethod === 'whatsapp' && (
-                <form onSubmit={handleVerifyWhatsappOtp} className="space-y-3">
-                  {methods.whatsapp && (
+              {/* Phương thức 2: OTP qua Telegram Bot */}
+              {twoFaMethod === 'telegram' && (
+                <form onSubmit={handleVerifyTelegramOtp} className="space-y-3">
+                  {methods.telegram && (
                     <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200 flex flex-wrap items-center justify-between gap-2">
                       <div className="text-[11px] text-slate-700">
                         <span className="font-semibold text-emerald-700">
-                          OTP qua WhatsApp đang bật
-                          {user.whatsappPhone ? ` (+${user.whatsappPhone})` : ''}.
+                          OTP qua Telegram đang bật
+                          {user.telegramChatId ? ` (Chat ID: ${user.telegramChatId})` : ''}.
                         </span>
                         {enabledMethodsCount <= 1 && (
                           <div className="text-rose-700 mt-0.5">
@@ -887,7 +900,7 @@ export default function UserMenuDropdown({ variant = 'light' }) {
                       <button
                         type="button"
                         disabled={twoFaLoading || enabledMethodsCount <= 1}
-                        onClick={() => handleDisableTwoFaMethod('whatsapp')}
+                        onClick={() => handleDisableTwoFaMethod('telegram')}
                         className="px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white font-semibold shrink-0"
                       >
                         Xóa / Tắt phương thức này
@@ -897,45 +910,58 @@ export default function UserMenuDropdown({ variant = 'light' }) {
 
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
-                      Số WhatsApp nhận mã OTP (tự chuẩn hóa 0xxx → 84xxx)
+                      Telegram Chat ID nhận mã OTP
                     </label>
                     <div className="flex gap-2">
                       <input
-                        type="tel"
+                        type="text"
+                        inputMode="numeric"
                         required
-                        value={waPhone}
-                        onChange={(e) => setWaPhone(e.target.value)}
-                        placeholder="Nhập số WhatsApp (VD: 0912345678)"
+                        value={tgChatId}
+                        onChange={(e) => setTgChatId(e.target.value)}
+                        placeholder="Nhập Telegram Chat ID (VD: 5123456789)"
                         className="flex-1 px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                       <button
                         type="button"
                         disabled={twoFaLoading}
-                        onClick={handleSendWhatsappOtp}
+                        onClick={handleSendTelegramOtp}
                         className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold shrink-0 disabled:opacity-60"
                       >
-                        Gửi mã qua WhatsApp
+                        Gửi mã qua Telegram
                       </button>
                     </div>
+                    <p className="mt-1.5 text-[11px] text-slate-600">
+                      Mở{' '}
+                      <a
+                        href="https://t.me/seculicense_otp_bot"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-semibold text-emerald-700 underline hover:text-emerald-800"
+                      >
+                        @seculicense_otp_bot
+                      </a>{' '}
+                      bấm <strong>Start</strong>, sau đó lấy ID từ <strong>@userinfobot</strong>.
+                    </p>
                   </div>
 
-                  {waPreviewOtp && (
+                  {tgPreviewOtp && (
                     <div className="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 font-mono text-center">
-                      Mã OTP WhatsApp Test: <strong>{waPreviewOtp}</strong>
+                      Mã OTP Telegram Test: <strong>{tgPreviewOtp}</strong>
                     </div>
                   )}
 
                   <div>
                     <label className="block font-semibold text-slate-700 mb-1">
-                      Nhập mã OTP 6 chữ số từ WhatsApp
+                      Nhập mã OTP 6 chữ số từ Telegram
                     </label>
                     <input
                       type="text"
                       inputMode="numeric"
                       maxLength={6}
                       required
-                      value={waCodeInput}
-                      onChange={(e) => setWaCodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      value={tgCodeInput}
+                      onChange={(e) => setTgCodeInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       placeholder="000000"
                       className="w-full px-3 py-2 rounded-lg border border-slate-300 text-center text-base font-mono tracking-[0.35em] focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
@@ -954,7 +980,7 @@ export default function UserMenuDropdown({ variant = 'light' }) {
                       disabled={twoFaLoading}
                       className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold disabled:opacity-60"
                     >
-                      Xác nhận bật WhatsApp 2FA
+                      Xác nhận bật Telegram 2FA
                     </button>
                   </div>
                 </form>
@@ -967,7 +993,7 @@ export default function UserMenuDropdown({ variant = 'light' }) {
                     <div className="p-3 rounded-xl bg-rose-50/70 border border-rose-200 flex flex-wrap items-center justify-between gap-2">
                       <div className="text-[11px] text-slate-700">
                         <span className="font-semibold text-emerald-700">
-                          OTP qua Gmail đang bật.
+                          OTP qua Gmail đang bật{user.gmailAddress ? ` (${user.gmailAddress})` : ''}.
                         </span>
                         {enabledMethodsCount <= 1 && (
                           <div className="text-rose-700 mt-0.5">
@@ -986,19 +1012,28 @@ export default function UserMenuDropdown({ variant = 'light' }) {
                     </div>
                   )}
 
-                  <div className="p-3 rounded-xl bg-rose-50/50 border border-rose-100 flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="text-[11px] text-slate-500">Địa chỉ Gmail nhận OTP:</div>
-                      <div className="font-semibold text-slate-900 truncate">{user.email}</div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">
+                      Địa chỉ Gmail nhận OTP (nhập bất kỳ Gmail hợp lệ)
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="email"
+                        required
+                        value={emailTargetInput}
+                        onChange={(e) => setEmailTargetInput(e.target.value)}
+                        placeholder="Nhập địa chỉ Gmail nhận OTP (VD: tenban@gmail.com)"
+                        className="flex-1 px-3 py-2 rounded-lg border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <button
+                        type="button"
+                        disabled={twoFaLoading}
+                        onClick={handleSendEmailOtp}
+                        className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold shrink-0 disabled:opacity-60"
+                      >
+                        Gửi mã qua Gmail
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      disabled={twoFaLoading}
-                      onClick={handleSendEmailOtp}
-                      className="px-3 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold shrink-0 disabled:opacity-60"
-                    >
-                      Gửi mã qua Gmail
-                    </button>
                   </div>
 
                   {emailPreviewOtp && (
@@ -1307,7 +1342,7 @@ export default function UserMenuDropdown({ variant = 'light' }) {
                       Bật xác thực 2 lớp (2FA)
                     </div>
                     <div className="text-[10px] text-amber-800">
-                      Authenticator · WhatsApp · Gmail OTP
+                      Authenticator · Telegram · Gmail OTP
                     </div>
                   </div>
                 </div>

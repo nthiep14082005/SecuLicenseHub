@@ -24,7 +24,7 @@ router.post('/2fa/verify', requireAuth, authController.verify2fa);
 router.post('/2fa/disable', requireAuth, authController.disable2faMethod);
 router.post('/2fa/email/send', requireAuth, authController.sendEmail2faOtp);
 router.post('/2fa/email/verify', requireAuth, authController.verifyEmail2faOtp);
-router.post('/2fa/whatsapp/send', requireAuth, authController.sendWhatsapp2faOtp);
-router.post('/2fa/whatsapp/verify', requireAuth, authController.verifyWhatsapp2faOtp);
+router.post('/2fa/telegram/send', requireAuth, authController.sendTelegram2faOtp);
+router.post('/2fa/telegram/verify', requireAuth, authController.verifyTelegram2faOtp);
 
 module.exports = router;

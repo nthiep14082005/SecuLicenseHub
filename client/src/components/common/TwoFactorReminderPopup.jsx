@@ -69,7 +69,7 @@ export default function TwoFactorReminderPopup() {
             Tài khoản chưa bật xác thực 2 lớp (2FA)
           </div>
           <p className="text-[11px] text-slate-600 leading-relaxed">
-            Vui lòng mở menu tài khoản ở góc phải và bật ít nhất 1 trong 3 phương thức (Google Auth, WhatsApp OTP hoặc Gmail OTP) để bảo vệ tài khoản.
+            Vui lòng mở menu tài khoản ở góc phải và bật ít nhất 1 trong 3 phương thức (Google Auth, Telegram OTP hoặc Gmail OTP) để bảo vệ tài khoản.
           </p>
         </div>
       </div>

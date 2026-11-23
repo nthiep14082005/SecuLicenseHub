@@ -168,6 +168,7 @@ exports.sendEmail2faOtp = async (req, res, next) => {
   try {
     const data = await authService.sendEmail2faOtp({
       userId: req.user.userId,
+      targetEmail: req.body?.targetEmail,
       req
     });
 
@@ -189,6 +190,7 @@ exports.verifyEmail2faOtp = async (req, res, next) => {
     const data = await authService.verifyEmail2faOtp({
       userId: req.user.userId,
       token: req.body?.token,
+      targetEmail: req.body?.targetEmail,
       req
     });
 
@@ -202,20 +204,20 @@ exports.verifyEmail2faOtp = async (req, res, next) => {
   }
 };
 
-exports.sendWhatsapp2faOtp = async (req, res, next) => {
+exports.sendTelegram2faOtp = async (req, res, next) => {
   try {
-    const data = await authService.sendWhatsapp2faOtp({
+    const data = await authService.sendTelegram2faOtp({
       userId: req.user.userId,
-      phone: req.body?.phone,
+      chatId: req.body?.chatId,
       req
     });
 
     return sendSuccess(res, {
       statusCode: 200,
       message:
-        data.deliveryMode === 'whatsapp'
-          ? `Đã gửi mã OTP 6 số qua WhatsApp tới số +${data.sentTo} (hiệu lực 5 phút)`
-          : data.fallbackReason || 'Chưa cấu hình WhatsApp Cloud API trong .env — đang dùng mã test',
+        data.deliveryMode === 'telegram'
+          ? `Đã gửi mã OTP 6 số qua Telegram tới Chat ID ${data.sentTo} (hiệu lực 5 phút)`
+          : data.fallbackReason || 'Chưa cấu hình TELEGRAM_BOT_TOKEN — đang dùng mã test',
       data
     });
   } catch (err) {
@@ -223,17 +225,18 @@ exports.sendWhatsapp2faOtp = async (req, res, next) => {
   }
 };
 
-exports.verifyWhatsapp2faOtp = async (req, res, next) => {
+exports.verifyTelegram2faOtp = async (req, res, next) => {
   try {
-    const data = await authService.verifyWhatsapp2faOtp({
+    const data = await authService.verifyTelegram2faOtp({
       userId: req.user.userId,
       token: req.body?.token,
+      chatId: req.body?.chatId,
       req
     });
 
     return sendSuccess(res, {
       statusCode: 200,
-      message: 'Kích hoạt xác thực 2 lớp qua WhatsApp thành công',
+      message: 'Kích hoạt xác thực 2 lớp qua Telegram thành công',
       data
     });
   } catch (err) {
@@ -276,7 +279,7 @@ exports.resendLogin2fa = async (req, res, next) => {
     return sendSuccess(res, {
       statusCode: 200,
       message:
-        data.deliveryMode === 'smtp' || data.deliveryMode === 'whatsapp'
+        data.deliveryMode === 'smtp' || data.deliveryMode === 'telegram'
           ? `Đã gửi lại mã OTP 6 số tới ${data.sentTo}`
           : data.fallbackReason || 'Đã tạo lại mã OTP test',
       data

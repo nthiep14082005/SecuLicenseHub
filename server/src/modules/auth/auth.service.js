@@ -19,19 +19,19 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BCRYPT_SALT_ROUNDS = 10;
 const MAX_FAILED_LOGIN_ATTEMPTS = 10;
 const EMAIL_OTP_TTL_MS = 5 * 60 * 1000;
-const WHATSAPP_OTP_TTL_MS = 5 * 60 * 1000;
+const TELEGRAM_OTP_TTL_MS = 5 * 60 * 1000;
 
-// Lưu tạm mã OTP Email & WhatsApp 2FA theo userId (hết hạn sau 5 phút)
+// Lưu tạm mã OTP Email & Telegram 2FA theo userId (hết hạn sau 5 phút)
 const emailOtpStore = new Map();
-const whatsappOtpStore = new Map();
+const telegramOtpStore = new Map();
 
-function normalizeVietnamPhone(rawPhone) {
-  const cleaned = String(rawPhone || '').replace(/[\s\-().+]/g, '');
-  if (!/^\d{9,15}$/.test(cleaned)) {
-    throw createHttpError(400, 'Số điện thoại WhatsApp không hợp lệ (cần 9-15 chữ số)');
-  }
-  if (cleaned.startsWith('0')) {
-    return `84${cleaned.slice(1)}`;
+function normalizeTelegramChatId(rawChatId) {
+  const cleaned = String(rawChatId || '').trim();
+  if (!/^-?\d{5,20}$/.test(cleaned)) {
+    throw createHttpError(
+      400,
+      'Telegram Chat ID không hợp lệ (chỉ gồm chữ số, có thể có dấu - ở đầu cho nhóm, VD: 5123456789)'
+    );
   }
   return cleaned;
 }
@@ -79,10 +79,10 @@ function maskEmailAddress(email) {
   return `${local.slice(0, 2)}***${local.slice(-2)}@${domain}`;
 }
 
-function maskPhoneNumber(phone) {
-  const clean = String(phone || '');
+function maskTelegramChatId(chatId) {
+  const clean = String(chatId || '').trim();
   if (clean.length <= 4) return '••••';
-  return `+${clean.slice(0, 2)} ••••• ${clean.slice(-3)}`;
+  return `${clean.slice(0, 2)}••••${clean.slice(-3)}`;
 }
 
 function formatUserSummary(row) {
@@ -91,7 +91,7 @@ function formatUserSummary(row) {
     Boolean(row.is_2fa_enabled),
     Boolean(row.totp_secret)
   );
-  const hasAny2FA = Boolean(prefs.totp || prefs.gmail || prefs.whatsapp);
+  const hasAny2FA = Boolean(prefs.totp || prefs.gmail || prefs.telegram);
 
   return {
     userId: row.user_id,
@@ -103,9 +103,10 @@ function formatUserSummary(row) {
     twoFactorMethods: {
       totp: prefs.totp,
       gmail: prefs.gmail,
-      whatsapp: prefs.whatsapp
+      telegram: prefs.telegram
     },
-    whatsappPhone: prefs.whatsappPhone || '',
+    gmailAddress: prefs.gmailAddress || '',
+    telegramChatId: prefs.telegramChatId || '',
     createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at
   };
 }
@@ -294,13 +295,18 @@ async function login({ email, password, totpCode, req }) {
     let otpMeta = {};
 
     if (requiredMethod === 'gmail') {
-      maskedTarget = maskEmailAddress(user.email);
-      otpMeta = await sendEmail2faOtp({ userId: user.user_id, req });
-    } else if (requiredMethod === 'whatsapp') {
-      maskedTarget = maskPhoneNumber(prefs.whatsappPhone);
-      otpMeta = await sendWhatsapp2faOtp({
+      const savedGmail = prefs.gmailAddress || user.email;
+      maskedTarget = maskEmailAddress(savedGmail);
+      otpMeta = await sendEmail2faOtp({
         userId: user.user_id,
-        phone: prefs.whatsappPhone,
+        targetEmail: savedGmail,
+        req
+      });
+    } else if (requiredMethod === 'telegram') {
+      maskedTarget = maskTelegramChatId(prefs.telegramChatId);
+      otpMeta = await sendTelegram2faOtp({
+        userId: user.user_id,
+        chatId: prefs.telegramChatId,
         req
       });
     }
@@ -457,7 +463,7 @@ async function verify2fa({ userId, token, req }) {
     twoFactorMethods: {
       totp: updatedPrefs.totp,
       gmail: updatedPrefs.gmail,
-      whatsapp: updatedPrefs.whatsapp
+      telegram: updatedPrefs.telegram
     }
   };
 }
@@ -498,29 +504,44 @@ async function updateProfile({ userId, fullName, req }) {
 }
 
 /**
- * Sinh và gửi mã OTP 6 số qua Gmail SMTP thật (nếu cấu hình SMTP_USER/SMTP_PASS) hoặc fallback dev preview.
+ * Sinh và gửi mã OTP 6 số qua Gmail SMTP thật tới targetEmail động (hoặc fallback dev preview nếu thiếu env).
  */
-async function sendEmail2faOtp({ userId, req }) {
+async function sendEmail2faOtp({ userId, targetEmail, req }) {
   const result = await query('SELECT user_id, email FROM users WHERE user_id = $1', [userId]);
   if (result.rows.length === 0) {
     throw createHttpError(404, 'Không tìm thấy tài khoản');
   }
 
   const user = result.rows[0];
-  if (!user.email.toLowerCase().endsWith('@gmail.com')) {
-    throw createHttpError(400, 'Xác thực 2FA qua Email chỉ áp dụng cho tài khoản @gmail.com');
+  const resolvedEmail =
+    typeof targetEmail === 'string' && targetEmail.trim()
+      ? targetEmail.trim().toLowerCase()
+      : String(user.email || '').trim().toLowerCase();
+
+  if (
+    !EMAIL_REGEX.test(resolvedEmail) ||
+    resolvedEmail.length > 150 ||
+    !resolvedEmail.endsWith('@gmail.com')
+  ) {
+    throw createHttpError(400, 'Vui lòng nhập địa chỉ Gmail hợp lệ (kết thúc bằng @gmail.com)');
   }
 
   const otp = String(crypto.randomInt(100000, 1000000));
   emailOtpStore.set(userId, {
     otp,
+    targetEmail: resolvedEmail,
     expiresAt: Date.now() + EMAIL_OTP_TTL_MS
   });
 
   let deliveryMode = 'fallback';
-  let fallbackReason = 'Chưa cấu hình SMTP_USER / SMTP_PASS trong .env — đang dùng mã test';
+  let fallbackReason = null;
 
-  if (env.smtp.user && env.smtp.pass) {
+  if (!env.smtp.user || !env.smtp.pass) {
+    const missingVars = [!env.smtp.user && 'SMTP_USER', !env.smtp.pass && 'SMTP_PASS']
+      .filter(Boolean)
+      .join(', ');
+    fallbackReason = `Chưa cấu hình ${missingVars} trong .env — đang dùng mã test`;
+  } else {
     try {
       const transporter = nodemailer.createTransport({
         service: 'gmail',
@@ -532,7 +553,7 @@ async function sendEmail2faOtp({ userId, req }) {
 
       await transporter.sendMail({
         from: `"SecuLicense Hub Security" <${env.smtp.user}>`,
-        to: user.email,
+        to: resolvedEmail,
         subject: '[SecuLicense Hub] Mã xác thực 2FA (hiệu lực 5 phút)',
         text: `Mã OTP xác thực 2 lớp của bạn là: ${otp}. Mã có hiệu lực trong 5 phút. Tuyệt đối không chia sẻ mã này cho người khác.`,
         html: `
@@ -546,25 +567,38 @@ async function sendEmail2faOtp({ userId, req }) {
       });
 
       deliveryMode = 'smtp';
-      fallbackReason = null;
     } catch (err) {
-      console.warn('[Auth] Gửi Gmail SMTP thất bại, chuyển sang chế độ fallback:', err.message);
-      deliveryMode = 'fallback';
-      fallbackReason = `Lỗi gửi Gmail SMTP (${err.message}) — đang dùng mã test`;
+      await writeAuditLog({
+        userId,
+        action: '2FA_EMAIL_OTP_FAILED',
+        resource: resolvedEmail,
+        req,
+        severity: 'WARN',
+        metadata: {
+          code: err.code || null,
+          responseCode: err.responseCode || null,
+          reason: err.message
+        }
+      });
+      const isAuthError = err.code === 'EAUTH' || err.responseCode === 535;
+      const detailMessage = isAuthError
+        ? `Gửi Gmail OTP thất bại: Sai SMTP_USER hoặc App Password 16 ký tự (SMTP_PASS) trong .env (${err.message})`
+        : `Gửi Gmail OTP thất bại qua SMTP (${err.message})`;
+      throw createHttpError(502, detailMessage);
     }
   }
 
   await writeAuditLog({
     userId,
     action: '2FA_EMAIL_OTP_SENT',
-    resource: user.email,
+    resource: resolvedEmail,
     req,
     severity: 'INFO',
-    metadata: { deliveryMode }
+    metadata: { deliveryMode, targetEmail: resolvedEmail }
   });
 
   const payload = {
-    sentTo: user.email,
+    sentTo: resolvedEmail,
     expiresInSeconds: Math.floor(EMAIL_OTP_TTL_MS / 1000),
     deliveryMode
   };
@@ -580,9 +614,9 @@ async function sendEmail2faOtp({ userId, req }) {
 }
 
 /**
- * Xác nhận mã OTP 6 số gửi qua Email để kích hoạt lớp 2FA Email.
+ * Xác nhận mã OTP 6 số gửi qua Email để kích hoạt lớp 2FA Email và lưu gmailAddress động.
  */
-async function verifyEmail2faOtp({ userId, token, req }) {
+async function verifyEmail2faOtp({ userId, token, targetEmail, req }) {
   const cleanToken = typeof token === 'string' || typeof token === 'number'
     ? String(token).trim()
     : '';
@@ -597,14 +631,25 @@ async function verifyEmail2faOtp({ userId, token, req }) {
     throw createHttpError(400, 'Mã OTP Email không tồn tại hoặc đã hết hạn. Vui lòng gửi lại mã mới.');
   }
 
+  if (typeof targetEmail === 'string' && targetEmail.trim()) {
+    const cleanTargetEmail = targetEmail.trim().toLowerCase();
+    if (cleanTargetEmail !== entry.targetEmail) {
+      throw createHttpError(
+        400,
+        'Địa chỉ Gmail không khớp với Gmail vừa nhận mã OTP. Vui lòng gửi lại mã mới.'
+      );
+    }
+  }
+
   const userRes = await query('SELECT email FROM users WHERE user_id = $1', [userId]);
-  const email = userRes.rows[0]?.email || `user:${userId}`;
+  const fallbackUserEmail = userRes.rows[0]?.email || `user:${userId}`;
+  const verifiedEmail = entry.targetEmail || fallbackUserEmail;
 
   if (entry.otp !== cleanToken) {
     await writeAuditLog({
       userId,
       action: '2FA_EMAIL_VERIFY_FAILED',
-      resource: email,
+      resource: verifiedEmail,
       req,
       severity: 'WARN'
     });
@@ -613,94 +658,139 @@ async function verifyEmail2faOtp({ userId, token, req }) {
 
   emailOtpStore.delete(userId);
   await query('UPDATE users SET is_2fa_enabled = TRUE WHERE user_id = $1', [userId]);
-  const updatedPrefs = updateUserTwoFaPrefs(userId, { gmail: true });
+  const updatedPrefs = updateUserTwoFaPrefs(userId, {
+    gmail: true,
+    gmailAddress: verifiedEmail
+  });
 
   await writeAuditLog({
     userId,
     action: '2FA_EMAIL_ENABLED',
-    resource: email,
+    resource: verifiedEmail,
     req,
-    severity: 'INFO'
+    severity: 'INFO',
+    metadata: { gmailAddress: verifiedEmail }
   });
 
   return {
     method: 'gmail',
     verified: true,
+    gmailAddress: verifiedEmail,
     hasAny2FA: true,
     twoFactorMethods: {
       totp: updatedPrefs.totp,
       gmail: updatedPrefs.gmail,
-      whatsapp: updatedPrefs.whatsapp
+      telegram: updatedPrefs.telegram
     }
   };
 }
 
 /**
- * Sinh và gửi mã OTP 6 số qua WhatsApp Meta Cloud API (hoặc fallback dev preview nếu chưa cấu hình/lỗi).
+ * Sinh và gửi mã OTP 6 số qua Telegram Bot API (@seculicense_otp_bot) tới chatId động.
  */
-async function sendWhatsapp2faOtp({ userId, phone, req }) {
-  const normalizedPhone = normalizeVietnamPhone(phone);
+async function sendTelegram2faOtp({ userId, chatId, req }) {
+  const normalizedChatId = normalizeTelegramChatId(chatId);
   const otp = String(crypto.randomInt(100000, 1000000));
 
-  whatsappOtpStore.set(userId, {
+  telegramOtpStore.set(userId, {
     otp,
-    phone: normalizedPhone,
-    expiresAt: Date.now() + WHATSAPP_OTP_TTL_MS
+    chatId: normalizedChatId,
+    expiresAt: Date.now() + TELEGRAM_OTP_TTL_MS
   });
 
   let deliveryMode = 'fallback';
-  let fallbackReason = 'Chưa cấu hình WhatsApp Cloud API trong .env — đang dùng mã test';
+  let fallbackReason = null;
 
-  if (env.whatsapp.token && env.whatsapp.phoneNumberId) {
+  const botToken = env.telegram?.botToken || '';
+  const botUsername = env.telegram?.botUsername || '@seculicense_otp_bot';
+
+  if (!botToken) {
+    fallbackReason = 'Chưa cấu hình TELEGRAM_BOT_TOKEN — đang dùng mã test';
+  } else {
     try {
-      const apiUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(
-        env.whatsapp.phoneNumberId
-      )}/messages`;
-
-      const waRes = await fetch(apiUrl, {
+      const apiUrl = `https://api.telegram.org/bot${botToken}/sendMessage`;
+      const tgRes = await fetch(apiUrl, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${env.whatsapp.token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          to: normalizedPhone,
-          type: 'text',
-          text: {
-            body: `[SecuLicense Hub] Ma OTP xac thuc 2FA cua ban la: ${otp} (hieu luc 5 phut). Khong chia se ma nay.`
-          }
+          chat_id: normalizedChatId,
+          text: `🔐 Mã xác thực 2FA SecuLicense Hub của bạn là: <b>${otp}</b>\nHiệu lực trong 5 phút.`,
+          parse_mode: 'HTML'
         })
       });
 
-      if (waRes.ok) {
-        deliveryMode = 'whatsapp';
-        fallbackReason = null;
+      const rawBody = await tgRes.text().catch(() => '');
+      let parsedBody = {};
+      try {
+        parsedBody = JSON.parse(rawBody);
+      } catch {
+        parsedBody = {};
+      }
+
+      if (tgRes.ok && parsedBody.ok !== false) {
+        deliveryMode = 'telegram';
       } else {
-        const errBody = await waRes.text().catch(() => '');
-        console.warn('[Auth] Meta WhatsApp API trả lỗi, fallback dev preview:', waRes.status, errBody);
-        deliveryMode = 'fallback';
-        fallbackReason = `Chưa cấu hình hoặc token WhatsApp Cloud API không hợp lệ (${waRes.status}) — đang dùng mã test`;
+        const tgErrorCode = parsedBody.error_code || tgRes.status;
+        const tgDesc = parsedBody.description || rawBody || tgRes.statusText || 'Unknown error';
+        const lowerDesc = String(tgDesc).toLowerCase();
+
+        let hint = '';
+        if (
+          tgErrorCode === 403 ||
+          lowerDesc.includes('bot was blocked') ||
+          lowerDesc.includes("can't initiate conversation")
+        ) {
+          hint = `Hãy mở ${botUsername} trên Telegram và bấm Start trước khi nhận mã. `;
+        } else if (tgErrorCode === 400 && lowerDesc.includes('chat not found')) {
+          hint = `Không tìm thấy Telegram Chat ID này. Hãy kiểm tra lại ID từ @userinfobot và bấm Start với ${botUsername}. `;
+        } else if (tgErrorCode === 401) {
+          hint = 'TELEGRAM_BOT_TOKEN không hợp lệ hoặc đã bị thu hồi. ';
+        }
+
+        await writeAuditLog({
+          userId,
+          action: '2FA_TELEGRAM_OTP_FAILED',
+          resource: normalizedChatId,
+          req,
+          severity: 'WARN',
+          metadata: { status: tgRes.status, errorCode: tgErrorCode, reason: tgDesc }
+        });
+
+        throw createHttpError(
+          502,
+          `Gửi Telegram OTP thất bại (${tgErrorCode}): ${hint}${tgDesc}`
+        );
       }
     } catch (err) {
-      console.warn('[Auth] Lỗi kết nối WhatsApp Cloud API, fallback dev preview:', err.message);
-      deliveryMode = 'fallback';
-      fallbackReason = 'Không thể kết nối WhatsApp Cloud API — đang dùng mã test';
+      if (err.statusCode === 502) {
+        throw err;
+      }
+      await writeAuditLog({
+        userId,
+        action: '2FA_TELEGRAM_OTP_FAILED',
+        resource: normalizedChatId,
+        req,
+        severity: 'WARN',
+        metadata: { reason: err.message }
+      });
+      throw createHttpError(502, `Không thể kết nối Telegram Bot API: ${err.message}`);
     }
   }
 
   await writeAuditLog({
     userId,
-    action: '2FA_WHATSAPP_OTP_SENT',
-    resource: normalizedPhone,
+    action: '2FA_TELEGRAM_OTP_SENT',
+    resource: normalizedChatId,
     req,
     severity: 'INFO',
     metadata: { deliveryMode }
   });
 
   const payload = {
-    sentTo: normalizedPhone,
-    expiresInSeconds: Math.floor(WHATSAPP_OTP_TTL_MS / 1000),
+    sentTo: normalizedChatId,
+    expiresInSeconds: Math.floor(TELEGRAM_OTP_TTL_MS / 1000),
     deliveryMode
   };
 
@@ -715,67 +805,78 @@ async function sendWhatsapp2faOtp({ userId, phone, req }) {
 }
 
 /**
- * Xác nhận mã OTP 6 số gửi qua WhatsApp để kích hoạt lớp 2FA WhatsApp.
+ * Xác nhận mã OTP 6 số gửi qua Telegram Bot để kích hoạt lớp 2FA Telegram.
  */
-async function verifyWhatsapp2faOtp({ userId, token, req }) {
+async function verifyTelegram2faOtp({ userId, token, chatId, req }) {
   const cleanToken = typeof token === 'string' || typeof token === 'number'
     ? String(token).trim()
     : '';
 
   if (!/^\d{6}$/.test(cleanToken)) {
-    throw createHttpError(400, 'Mã OTP WhatsApp phải gồm đúng 6 chữ số');
+    throw createHttpError(400, 'Mã OTP Telegram phải gồm đúng 6 chữ số');
   }
 
-  const entry = whatsappOtpStore.get(userId);
+  const entry = telegramOtpStore.get(userId);
   if (!entry || Date.now() > entry.expiresAt) {
-    whatsappOtpStore.delete(userId);
+    telegramOtpStore.delete(userId);
     throw createHttpError(
       400,
-      'Mã OTP WhatsApp không tồn tại hoặc đã hết hạn. Vui lòng gửi lại mã mới.'
+      'Mã OTP Telegram không tồn tại hoặc đã hết hạn. Vui lòng gửi lại mã mới.'
     );
+  }
+
+  if (typeof chatId === 'string' && chatId.trim()) {
+    const normalizedInputChatId = normalizeTelegramChatId(chatId);
+    if (normalizedInputChatId !== entry.chatId) {
+      throw createHttpError(
+        400,
+        'Telegram Chat ID không khớp với ID vừa nhận mã OTP. Vui lòng gửi lại mã mới.'
+      );
+    }
   }
 
   if (entry.otp !== cleanToken) {
     await writeAuditLog({
       userId,
-      action: '2FA_WHATSAPP_VERIFY_FAILED',
-      resource: entry.phone,
+      action: '2FA_TELEGRAM_VERIFY_FAILED',
+      resource: entry.chatId,
       req,
       severity: 'WARN'
     });
-    throw createHttpError(400, 'Mã OTP WhatsApp không chính xác');
+    throw createHttpError(400, 'Mã OTP Telegram không chính xác');
   }
 
-  whatsappOtpStore.delete(userId);
+  telegramOtpStore.delete(userId);
   await query('UPDATE users SET is_2fa_enabled = TRUE WHERE user_id = $1', [userId]);
   const updatedPrefs = updateUserTwoFaPrefs(userId, {
-    whatsapp: true,
-    whatsappPhone: entry.phone
+    telegram: true,
+    telegramChatId: entry.chatId
   });
 
   await writeAuditLog({
     userId,
-    action: '2FA_WHATSAPP_ENABLED',
-    resource: entry.phone,
+    action: '2FA_TELEGRAM_ENABLED',
+    resource: entry.chatId,
     req,
-    severity: 'INFO'
+    severity: 'INFO',
+    metadata: { telegramChatId: entry.chatId }
   });
 
   return {
-    method: 'whatsapp',
+    method: 'telegram',
     verified: true,
-    phone: entry.phone,
+    chatId: entry.chatId,
     hasAny2FA: true,
     twoFactorMethods: {
       totp: updatedPrefs.totp,
       gmail: updatedPrefs.gmail,
-      whatsapp: updatedPrefs.whatsapp
+      telegram: updatedPrefs.telegram
     }
   };
 }
 
 /**
- * Xác thực challengeToken (bước 2 của Login 2FA) cho 1 trong 3 phương thức: totp | gmail | whatsapp.
+ * Xác thực challengeToken (bước 2 của Login 2FA) cho 1 trong 3 phương thức: totp | gmail | telegram.
  */
 async function verifyLogin2fa({ challengeToken, code, req }) {
   if (!challengeToken || typeof challengeToken !== 'string') {
@@ -843,24 +944,24 @@ async function verifyLogin2fa({ challengeToken, code, req }) {
       throw createHttpError(401, 'Mã OTP Gmail không chính xác');
     }
     emailOtpStore.delete(user.user_id);
-  } else if (method === 'whatsapp') {
-    const entry = whatsappOtpStore.get(user.user_id);
+  } else if (method === 'telegram') {
+    const entry = telegramOtpStore.get(user.user_id);
     if (!entry || Date.now() > entry.expiresAt) {
-      whatsappOtpStore.delete(user.user_id);
-      throw createHttpError(401, 'Mã OTP WhatsApp đã hết hạn. Vui lòng bấm Gửi lại mã.');
+      telegramOtpStore.delete(user.user_id);
+      throw createHttpError(401, 'Mã OTP Telegram đã hết hạn. Vui lòng bấm Gửi lại mã Telegram.');
     }
     if (entry.otp !== cleanCode) {
       await writeAuditLog({
         userId: user.user_id,
         action: 'LOGIN_2FA_FAILED',
-        resource: entry.phone,
+        resource: entry.chatId,
         req,
         severity: 'HIGH',
-        metadata: { method: 'whatsapp' }
+        metadata: { method: 'telegram' }
       });
-      throw createHttpError(401, 'Mã OTP WhatsApp không chính xác');
+      throw createHttpError(401, 'Mã OTP Telegram không chính xác');
     }
-    whatsappOtpStore.delete(user.user_id);
+    telegramOtpStore.delete(user.user_id);
   } else {
     throw createHttpError(400, 'Phương thức 2FA không được hỗ trợ');
   }
@@ -883,7 +984,7 @@ async function verifyLogin2fa({ challengeToken, code, req }) {
 }
 
 /**
- * Gửi lại mã OTP trong bước 2 đăng nhập (/verify-2fa) cho gmail hoặc whatsapp.
+ * Gửi lại mã OTP trong bước 2 đăng nhập (/verify-2fa) cho gmail hoặc telegram.
  */
 async function resendLogin2fa({ challengeToken, req }) {
   if (!challengeToken || typeof challengeToken !== 'string') {
@@ -902,17 +1003,22 @@ async function resendLogin2fa({ challengeToken, req }) {
   }
 
   if (decoded.requiredMethod === 'gmail') {
-    return sendEmail2faOtp({ userId: decoded.userId, req });
+    const prefs = getUserTwoFaPrefs(decoded.userId);
+    return sendEmail2faOtp({
+      userId: decoded.userId,
+      targetEmail: prefs.gmailAddress || undefined,
+      req
+    });
   }
 
-  if (decoded.requiredMethod === 'whatsapp') {
+  if (decoded.requiredMethod === 'telegram') {
     const prefs = getUserTwoFaPrefs(decoded.userId);
-    if (!prefs.whatsappPhone) {
-      throw createHttpError(400, 'Không tìm thấy số WhatsApp đã liên kết');
+    if (!prefs.telegramChatId) {
+      throw createHttpError(400, 'Không tìm thấy Telegram Chat ID đã liên kết');
     }
-    return sendWhatsapp2faOtp({
+    return sendTelegram2faOtp({
       userId: decoded.userId,
-      phone: prefs.whatsappPhone,
+      chatId: prefs.telegramChatId,
       req
     });
   }
@@ -978,14 +1084,14 @@ async function updateEmail({ userId, email, req }) {
 }
 
 /**
- * Xóa / Tắt 1 phương thức xác thực 2 lớp (Google Auth / Gmail OTP / WhatsApp OTP).
+ * Xóa / Tắt 1 phương thức xác thực 2 lớp (Google Auth / Gmail OTP / Telegram OTP).
  * Bắt buộc giữ lại ít nhất 1 phương thức 2FA nếu tài khoản đang bật 2FA.
  */
 async function disable2faMethod({ userId, method, req }) {
   const cleanMethod = typeof method === 'string' ? method.trim().toLowerCase() : '';
-  const validMethods = ['totp', 'gmail', 'whatsapp'];
+  const validMethods = ['totp', 'gmail', 'telegram'];
   if (!validMethods.includes(cleanMethod)) {
-    throw createHttpError(400, 'Phương thức 2FA không hợp lệ (chỉ hỗ trợ totp, gmail, whatsapp)');
+    throw createHttpError(400, 'Phương thức 2FA không hợp lệ (chỉ hỗ trợ totp, gmail, telegram)');
   }
 
   const userRes = await query(
@@ -1003,14 +1109,16 @@ async function disable2faMethod({ userId, method, req }) {
     throw createHttpError(400, 'Phương thức xác thực 2 lớp này hiện chưa được bật');
   }
 
-  const enabledCount = [prefs.totp, prefs.gmail, prefs.whatsapp].filter(Boolean).length;
+  const enabledCount = [prefs.totp, prefs.gmail, prefs.telegram].filter(Boolean).length;
   if (enabledCount <= 1) {
     throw createHttpError(400, 'Phải giữ lại ít nhất 1 phương thức xác thực 2 lớp');
   }
 
   const patch = { [cleanMethod]: false };
-  if (cleanMethod === 'whatsapp') {
-    patch.whatsappPhone = null;
+  if (cleanMethod === 'telegram') {
+    patch.telegramChatId = '';
+  } else if (cleanMethod === 'gmail') {
+    patch.gmailAddress = '';
   }
 
   const nextPrefs = updateUserTwoFaPrefs(userId, patch);
@@ -1030,18 +1138,18 @@ async function disable2faMethod({ userId, method, req }) {
       remainingMethods: {
         totp: nextPrefs.totp,
         gmail: nextPrefs.gmail,
-        whatsapp: nextPrefs.whatsapp
+        telegram: nextPrefs.telegram
       }
     }
   });
 
   return {
     method: cleanMethod,
-    hasAny2FA: Boolean(nextPrefs.totp || nextPrefs.gmail || nextPrefs.whatsapp),
+    hasAny2FA: Boolean(nextPrefs.totp || nextPrefs.gmail || nextPrefs.telegram),
     twoFactorMethods: {
       totp: nextPrefs.totp,
       gmail: nextPrefs.gmail,
-      whatsapp: nextPrefs.whatsapp
+      telegram: nextPrefs.telegram
     }
   };
 }
@@ -1055,8 +1163,8 @@ module.exports = {
   updateProfile,
   sendEmail2faOtp,
   verifyEmail2faOtp,
-  sendWhatsapp2faOtp,
-  verifyWhatsapp2faOtp,
+  sendTelegram2faOtp,
+  verifyTelegram2faOtp,
   verifyLogin2fa,
   resendLogin2fa,
   updateEmail,
