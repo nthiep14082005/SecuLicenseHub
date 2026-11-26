@@ -1,21 +1,33 @@
-const { sendNotImplemented } = require('../../utils/response.util');
+const { sendNotImplemented, sendSuccess, sendError } = require('../../utils/response.util');
 const ordersService = require('./orders.service');
 
-void ordersService;
-
-exports.createOrder = async (req, res) =>
-  sendNotImplemented(res, {
-    owner: 'Thành viên B',
-    endpoint: 'POST /api/orders',
-    todo: 'Chạy withTransaction() khóa SELECT ... FOR UPDATE, tính tổng tiền từ giá DB (bỏ qua giá client), gán license_keys, ký signOrderHmac(), sinh URL VietQR và ghi audit_logs.'
+function handleOrderError(res, error) {
+  const expected = error instanceof ordersService.OrderError;
+  return sendError(res, {
+    statusCode: expected ? error.statusCode : 500,
+    message: expected ? error.message : 'Không thể xử lý đơn hàng lúc này. Vui lòng thử lại sau.'
   });
+}
 
-exports.getMyOrders = async (req, res) =>
-  sendNotImplemented(res, {
-    owner: 'Thành viên B',
-    endpoint: 'GET /api/orders/my',
-    todo: 'Truy vấn các đơn hàng thuộc req.user.userId (chống IDOR) kèm chi tiết sản phẩm.'
-  });
+exports.createOrder = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const data = await ordersService.createOrder(req.body, req.user, req);
+    return sendSuccess(res, { statusCode: 201, message: 'Đặt đơn thành công, đang chờ xác nhận thanh toán', data });
+  } catch (error) {
+    return handleOrderError(res, error);
+  }
+};
+
+exports.getMyOrders = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const { orders, pagination } = await ordersService.getMyOrders(req.query, req.user);
+    return sendSuccess(res, { data: orders, pagination });
+  } catch (error) {
+    return handleOrderError(res, error);
+  }
+};
 
 exports.listAllOrders = async (req, res) =>
   sendNotImplemented(res, {
@@ -31,9 +43,12 @@ exports.updateOrderStatus = async (req, res) =>
     todo: 'Admin duyệt/cập nhật trạng thái đơn (PENDING -> CONFIRMED -> COMPLETED/CANCELLED) và ghi audit_logs.'
   });
 
-exports.verifyOrderIntegrity = async (req, res) =>
-  sendNotImplemented(res, {
-    owner: 'Thành viên B',
-    endpoint: 'GET /api/orders/:id/verify-integrity',
-    todo: 'Kiểm tra chủ sở hữu hoặc quyền ADMIN, gọi verifyOrderHmac() đối chiếu integrity_hmac trong DB để phát hiện sửa giá.'
-  });
+exports.verifyOrderIntegrity = async (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try {
+    const data = await ordersService.verifyOrderIntegrity(req.params.id, req.user, req);
+    return sendSuccess(res, { message: data.valid ? 'Hóa đơn còn nguyên vẹn' : 'Phát hiện hóa đơn đã bị thay đổi', data });
+  } catch (error) {
+    return handleOrderError(res, error);
+  }
+};

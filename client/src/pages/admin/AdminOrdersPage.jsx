@@ -1,5 +1,6 @@
 import React from 'react';
-import { CheckCircle2, ReceiptText, ShieldCheck } from 'lucide-react';
+import { CheckCircle2 } from 'lucide-react';
+import OrderIntegrityButton from '../../components/portal/OrderIntegrityButton';
 
 const DEMO_ORDERS = [
   {
@@ -54,9 +55,7 @@ export default function AdminOrdersPage() {
                 <td className="p-3">{ord.paymentMethod}</td>
                 <td className="p-3 font-semibold">{ord.totalAmount.toLocaleString('vi-VN')} đ</td>
                 <td className="p-3">
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 text-xs font-medium">
-                    <ShieldCheck className="w-3.5 h-3.5" /> HMAC Hợp lệ
-                  </span>
+                  <OrderIntegrityButton key={ord.orderId} orderId={ord.orderId} />
                 </td>
                 <td className="p-3">
                   <span className="px-2 py-0.5 rounded bg-amber-50 text-amber-800 text-xs font-semibold">
@@ -70,12 +69,6 @@ export default function AdminOrdersPage() {
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" /> Duyệt đơn (Stub)
                   </button>
-                  <button
-                    type="button"
-                    className="px-2.5 py-1 rounded border border-slate-300 text-xs font-medium inline-flex items-center gap-1"
-                  >
-                    <ReceiptText className="w-3.5 h-3.5" /> Kiểm chứng HMAC
-                  </button>
                 </td>
               </tr>
             ))}
@@ -84,7 +77,7 @@ export default function AdminOrdersPage() {
       </div>
 
       <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-900">
-        TODO [Thành viên A]: Nối <code>GET /api/orders</code> và <code>PATCH /api/orders/:id/status</code> · TODO [Thành viên B]: Nối <code>GET /api/orders/:id/verify-integrity</code>.
+        TODO [Thành viên A]: Nối <code>GET /api/orders</code> và <code>PATCH /api/orders/:id/status</code> · Nút kiểm chứng HMAC gọi API thật; danh sách hóa đơn hiện vẫn là dữ liệu mẫu.
       </div>
     </div>
   );
