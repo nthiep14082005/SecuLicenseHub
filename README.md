@@ -202,6 +202,18 @@ npm --prefix client run dev
 3. **Tuyệt đối không commit bí mật:** Không push `.env`, API key, `node_modules/`, `client/dist/` hay ảnh thật trong `server/uploads/`.
 4. **Đồng bộ & Merge định kỳ:** Cuối Tuần 2 và Tuần 3–4 mở Pull Request về `main`, review chéo và chạy test lại toàn luồng trước khi chốt code.
 
+> [!CAUTION]
+> **Quy tắc cứng dành riêng cho Thành viên B (`feat/b-portal-crypto-ai`):**
+> - Khi `git fetch` / kéo code mới nhất của nhóm hoặc của Thành viên A về ghép chạy thử, **BẮT BUỘC phải tạo nhánh mới riêng biệt** (ví dụ `feat/b-portal-crypto-ai` hoặc `test/b-integration`) rồi **merge code vào nhánh mới đó để test**.
+> - **TUYỆT ĐỐI KHÔNG** commit, push, sửa code hay thao tác trực tiếp lên nhánh `main` và nhánh của Thành viên A (`feat/a-core-admin-hardening`).
+>
+> ```bash
+> git fetch origin
+> git checkout feat/b-portal-crypto-ai || git checkout -b feat/b-portal-crypto-ai origin/feat/b-portal-crypto-ai
+> git checkout -b test/b-integration feat/b-portal-crypto-ai
+> git merge origin/feat/a-core-admin-hardening
+> ```
+
 ---
 
 ## 7. Tham khảo nhanh Tài liệu Bảo vệ & Đề cương 2 Môn
